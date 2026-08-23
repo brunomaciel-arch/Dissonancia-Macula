@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Limiar da Corrupção — Central de Personagens</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="icon" type="image/png" href="favicon.png">
   <script>
     // Aplica o tema salvo antes do primeiro paint, evitando flash do tema padrão
     (function() {
@@ -413,6 +412,7 @@
           <button class="skill-row" data-skill="resistencia-mental" data-formula="raz_ins"><span class="skill-name">Resistência Mental</span><span class="skill-formula">2d10 + (RAZ+INS)/2</span><span class="skill-total" id="skill-val-resistencia-mental">0</span></button>
           <button class="skill-row" data-skill="concentracao" data-formula="pre_raz"><span class="skill-name">Concentração</span><span class="skill-formula">2d10 + (PRE+RAZ)/2</span><span class="skill-total" id="skill-val-concentracao">0</span></button>
           <button class="skill-row" data-skill="agilidade" data-formula="pre_ins"><span class="skill-name">Agilidade</span><span class="skill-formula">2d10 + (PRE+INS)/2</span><span class="skill-total" id="skill-val-agilidade">0</span></button>
+          <button class="skill-row" data-skill="pilotagem" data-formula="pre_ins"><span class="skill-name">Pilotagem</span><span class="skill-formula">2d10 + (INS+PRE)/2</span><span class="skill-total" id="skill-val-pilotagem">0</span></button>
           <button class="skill-row" data-skill="investigacao" data-formula="raz_ins"><span class="skill-name">Investigação</span><span class="skill-formula">2d10 + (RAZ+INS)/2</span><span class="skill-total" id="skill-val-investigacao">0</span></button>
           <button class="skill-row" data-skill="negociacao" data-formula="raz_prs"><span class="skill-name">Negociação</span><span class="skill-formula">2d10 + (RAZ+PRS)/2</span><span class="skill-total" id="skill-val-negociacao">0</span></button>
         </div>
@@ -529,6 +529,20 @@
           </table>
         </div>
         <p class="table-empty" id="equipment-empty">Nenhum equipamento cadastrado.</p>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card__header">
+          <h2 class="panel-card__title">Veículos</h2>
+          <button class="btn btn--primary btn--sm" id="btn-add-vehicle">+ Adicionar Veículo</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="equipment-table" id="vehicle-table">
+            <thead><tr><th>Tipo de Veículo</th><th>Nível de Mercado</th><th>Manobra</th><th>Propriedades</th><th>Lesões Críticas</th><th></th></tr></thead>
+            <tbody id="vehicle-body"></tbody>
+          </table>
+        </div>
+        <p class="table-empty" id="vehicle-empty">Nenhum veículo cadastrado.</p>
       </div>
 
     </div>
