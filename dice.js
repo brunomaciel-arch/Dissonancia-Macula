@@ -234,6 +234,7 @@ const SKILL_NAMES = {
   'redirecionamento':'Redirecionamento','medicina':'Medicina','confeccao':'Confecção e Reparo',
   'resistencia-mental':'Resistência Mental','concentracao':'Concentração',
   'agilidade':'Agilidade','investigacao':'Investigação','negociacao':'Negociação',
+  'pilotagem':'Pilotagem',
 };
 
 export function bindSkillRolls() {
