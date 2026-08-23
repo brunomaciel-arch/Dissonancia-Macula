@@ -47,6 +47,7 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     rd: 0, credits: 0,
     rdTier: 'comum',         // 'comum' | 'desenvolvido' | 'avancado'
     equipment: [],
+    vehicles: [],
 
     // Aba 4 — Habilidades
     abilities: [],
@@ -58,6 +59,10 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
 
 function createEquipmentItem() {
   return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0 };
+}
+
+function createVehicleItem() {
+  return { id: generateId(), type: '', market: '', maneuver: '', properties: '', criticalInjuries: '' };
 }
 
 function createAbility() {
@@ -80,6 +85,7 @@ function mergeWithDefaults(agent) {
   merged.equipment  = Array.isArray(agent.equipment)
     ? agent.equipment.map(e => ({ weaponAttr: 'fis', weaponBonus: 0, ...e }))
     : [];
+  merged.vehicles = Array.isArray(agent.vehicles) ? agent.vehicles : [];
   merged.abilities  = Array.isArray(agent.abilities)  ? agent.abilities  : [];
   merged.notes = Array.isArray(agent.notes)
     ? agent.notes.map(n => ({ createdAt: Date.now(), ...n }))
@@ -258,6 +264,25 @@ export function updateEquipmentField(itemId, field, value) {
 export function removeEquipment(itemId) {
   if (!_active) return;
   _active.equipment = _active.equipment.filter(e => e.id !== itemId);
+  saveAgent(_active);
+}
+
+/* ── VEHICLES ── */
+export function addVehicle() {
+  if (!_active) return null;
+  const item = createVehicleItem();
+  _active.vehicles.push(item);
+  saveAgent(_active);
+  return item;
+}
+export function updateVehicleField(itemId, field, value) {
+  if (!_active) return;
+  const item = _active.vehicles.find(v => v.id === itemId);
+  if (item) { item[field] = value; saveAgent(_active); }
+}
+export function removeVehicle(itemId) {
+  if (!_active) return;
+  _active.vehicles = _active.vehicles.filter(v => v.id !== itemId);
   saveAgent(_active);
 }
 
