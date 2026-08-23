@@ -12,6 +12,7 @@ import {
   calcBmMax, calcSkillMod,
   exportAgent, exportAgentTxt, importAgentFromFile,
   addEquipment, updateEquipmentField, removeEquipment,
+  addVehicle, updateVehicleField, removeVehicle,
   addAbility, updateAbilityField, removeAbility,
   addNote, updateNoteField, removeNote,
   stepDev, setPhotoOffset,
@@ -402,6 +403,7 @@ function populateTab3(agent) {
   });
 
   renderEquipmentTable(agent);
+  renderVehicleTable(agent);
 }
 
 export function renderEquipmentTable(agent) {
@@ -446,6 +448,49 @@ function buildEquipmentRow(item) {
     removeEquipment(item.id); tr.remove();
     if (!getActiveAgent().equipment.length) $('#equipment-empty').style.display = '';
     renderWeapons(getActiveAgent());
+  });
+  tdBtn.appendChild(btn);
+  tr.appendChild(tdBtn);
+  return tr;
+}
+
+/* ── Veículos ── */
+export function renderVehicleTable(agent) {
+  const tbody = $('#vehicle-body');
+  const empty = $('#vehicle-empty');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!agent.vehicles?.length) { if (empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
+  agent.vehicles.forEach(item => tbody.appendChild(buildVehicleRow(item)));
+}
+
+function buildVehicleRow(item) {
+  const tr = document.createElement('tr');
+  tr.dataset.vehicleId = item.id;
+  [
+    { key:'type',             cls:'',     ph:'Ex: Moto, Blindado...' },
+    { key:'market',           cls:'--sm', ph:'—' },
+    { key:'maneuver',         cls:'--sm', ph:'—' },
+    { key:'properties',       cls:'',     ph:'—' },
+    { key:'criticalInjuries', cls:'',     ph:'—' },
+  ].forEach(f => {
+    const td = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.className   = `eq-input eq-input${f.cls}`;
+    inp.type        = 'text';
+    inp.value       = item[f.key] ?? '';
+    inp.placeholder = f.ph;
+    inp.addEventListener('change', () => updateVehicleField(item.id, f.key, inp.value));
+    td.appendChild(inp);
+    tr.appendChild(td);
+  });
+  const tdBtn = document.createElement('td');
+  const btn   = document.createElement('button');
+  btn.className = 'btn-remove-row'; btn.textContent = '✕';
+  btn.addEventListener('click', () => {
+    removeVehicle(item.id); tr.remove();
+    if (!getActiveAgent().vehicles.length) $('#vehicle-empty').style.display = '';
   });
   tdBtn.appendChild(btn);
   tr.appendChild(tdBtn);
@@ -908,6 +953,12 @@ export function bindSheetEvents() {
     $('#equipment-empty').style.display = 'none';
     tbody.appendChild(buildEquipmentRow(item));
     renderWeapons(getActiveAgent());
+  });
+
+  // ── Arsenal: adicionar veículo ──
+  $('#btn-add-vehicle')?.addEventListener('click', () => {
+    addVehicle();
+    renderVehicleTable(getActiveAgent());
   });
 
   // ── Habilidades: adicionar ──
