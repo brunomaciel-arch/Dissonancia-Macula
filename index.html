@@ -88,9 +88,15 @@
           <label class="field-label" for="agent-title">Título / Codinome</label>
           <input class="field-input" type="text" id="agent-title" data-field="title" placeholder="Ex: O Andarilho..." />
         </div>
-        <div class="field-group">
-          <label class="field-label" for="agent-forma">Forma</label>
-          <input class="field-input" type="text" id="agent-forma" data-field="forma" placeholder="Ex: Combate, Infiltração..." />
+        <div class="id-row">
+          <div class="field-group">
+            <label class="field-label" for="agent-forma-primaria">Forma Primária</label>
+            <input class="field-input" type="text" id="agent-forma-primaria" data-field="formaPrimaria" placeholder="Ex: Combate..." />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="agent-forma-secundaria">Forma Secundária</label>
+            <input class="field-input" type="text" id="agent-forma-secundaria" data-field="formaSecundaria" placeholder="Ex: Infiltração..." />
+          </div>
         </div>
         <div class="id-row">
           <div class="field-group">
@@ -298,6 +304,16 @@
           <div class="fonte-pips-big" id="fonte-pips-big"></div>
         </div>
 
+        <!-- Tipo do Personagem -->
+        <div class="status-bar-group">
+          <div class="status-bar-header"><span class="status-label">Tipo</span></div>
+          <div class="char-type-selector" id="char-type-selector">
+            <button class="char-type-option" data-type="ordem">Ordem</button>
+            <button class="char-type-option" data-type="adrenalina">Adrenalina</button>
+            <button class="char-type-option" data-type="ruina">Ruína</button>
+          </div>
+        </div>
+
         <!-- Fontes de Ação -->
         <div class="status-bar-group">
           <div class="status-bar-header"><span class="status-label">Fontes de Ação</span></div>
@@ -309,6 +325,41 @@
             <button class="hex-pip" data-index="4" title="Fonte de Ação 5"></button>
           </div>
         </div>
+
+        <!-- Salvaguarda — testes contra a morte -->
+        <div class="status-bar-group">
+          <div class="status-bar-header"><span class="status-label">Salvaguarda</span></div>
+          <div class="salvaguarda-row">
+            <div class="salvaguarda-track">
+              <span class="salvaguarda-track__label salvaguarda-track__label--vida">Vida</span>
+              <div class="hex-group hex-group--sm" id="salvaguarda-vida-group">
+                <button class="hex-pip hex-pip--green" data-track="vida" data-index="0"></button>
+                <button class="hex-pip hex-pip--green" data-track="vida" data-index="1"></button>
+                <button class="hex-pip hex-pip--green" data-track="vida" data-index="2"></button>
+              </div>
+            </div>
+            <div class="salvaguarda-track">
+              <span class="salvaguarda-track__label salvaguarda-track__label--morte">Morte</span>
+              <div class="hex-group hex-group--sm" id="salvaguarda-morte-group">
+                <button class="hex-pip hex-pip--red" data-track="morte" data-index="0"></button>
+                <button class="hex-pip hex-pip--red" data-track="morte" data-index="1"></button>
+                <button class="hex-pip hex-pip--red" data-track="morte" data-index="2"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Condições Ativas (largura total) -->
+      <div class="panel-card panel-card--full">
+        <h2 class="panel-card__title">Condições Ativas</h2>
+        <textarea
+          class="field-textarea"
+          id="active-conditions"
+          data-field="activeConditions"
+          rows="4"
+          placeholder="Trauma(s) de Exposição, Efeito(s) Ativo(s)..."
+        ></textarea>
       </div>
 
       <!-- Desenvolvimento (largura total, abaixo dos dois cards) -->
@@ -402,6 +453,20 @@
           <button class="skill-row" data-skill="furtividade" data-formula="prs"><span class="skill-name">Furtividade</span><span class="skill-formula">2d10 + PRS</span><span class="skill-total" id="skill-val-furtividade">0</span></button>
           <button class="skill-row" data-skill="engano" data-formula="prs"><span class="skill-name">Engano</span><span class="skill-formula">2d10 + PRS</span><span class="skill-total" id="skill-val-engano">0</span></button>
           <button class="skill-row" data-skill="presenca-skill" data-formula="prs"><span class="skill-name">Presença</span><span class="skill-formula">2d10 + PRS</span><span class="skill-total" id="skill-val-presenca-skill">0</span></button>
+        </div>
+
+        <div class="skill-group skill-group--initiative" id="skill-group-initiative">
+          <div class="skill-group__header skill-group__header--initiative">
+            <span>⚡ INICIATIVA</span>
+            <span class="skill-group__val" id="initiative-val">0</span>
+          </div>
+          <div class="initiative-row">
+            <span class="initiative-formula">2d10 + (INS − Peso da Arma)</span>
+            <select class="initiative-weapon-select" id="initiative-weapon-select">
+              <option value="">Sem arma (+0)</option>
+            </select>
+            <button class="weapon-roll-btn" id="btn-roll-initiative" title="Rolar Iniciativa">🎲</button>
+          </div>
         </div>
 
         <div class="skill-group" data-attr-group="hybrid">
@@ -524,7 +589,7 @@
         </div>
         <div class="table-wrapper">
           <table class="equipment-table" id="equipment-table">
-            <thead><tr><th>Nome</th><th>Descrição</th><th>Mercado</th><th>Dano</th><th>Alcance</th><th>Preço</th><th>Qtd</th><th></th></tr></thead>
+            <thead><tr><th>Nome</th><th>Descrição</th><th>Mercado</th><th>Dano</th><th>Alcance</th><th>Preço</th><th>Qtd</th><th>Peso</th><th></th></tr></thead>
             <tbody id="equipment-body"></tbody>
           </table>
         </div>
@@ -536,13 +601,23 @@
           <h2 class="panel-card__title">Veículos</h2>
           <button class="btn btn--primary btn--sm" id="btn-add-vehicle">+ Adicionar Veículo</button>
         </div>
+        <div id="vehicle-list">
+          <p class="table-empty" id="vehicle-empty">Nenhum veículo cadastrado.</p>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card__header">
+          <h2 class="panel-card__title">Consumíveis</h2>
+          <button class="btn btn--primary btn--sm" id="btn-add-consumable">+ Adicionar Consumível</button>
+        </div>
         <div class="table-wrapper">
-          <table class="equipment-table" id="vehicle-table">
-            <thead><tr><th>Tipo de Veículo</th><th>Nível de Mercado</th><th>Manobra</th><th>Propriedades</th><th>Lesões Críticas</th><th></th></tr></thead>
-            <tbody id="vehicle-body"></tbody>
+          <table class="equipment-table" id="consumable-table">
+            <thead><tr><th>Nome</th><th>Função</th><th>Descrição</th><th>Qtd</th><th></th></tr></thead>
+            <tbody id="consumable-body"></tbody>
           </table>
         </div>
-        <p class="table-empty" id="vehicle-empty">Nenhum veículo cadastrado.</p>
+        <p class="table-empty" id="consumable-empty">Nenhum consumível cadastrado.</p>
       </div>
 
     </div>
