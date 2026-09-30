@@ -2,7 +2,7 @@
    LIMIAR DA CORRUPÇÃO — dice.js  (v5 completo)
    ══════════════════════════════════════════════════════ */
 
-import { getActiveAgent, calcSkillMod, pushRollHistory } from './state.js';
+import { getActiveAgent, calcSkillMod, calcInitiativeMod, pushRollHistory } from './state.js';
 import { populateRollHistory } from './ui.js';
 import { sendRoll } from './webhook.js';
 
@@ -226,6 +226,56 @@ export function rollWeapon(itemName, damageExpr, attrValue, attrName, extraBonus
 
   _rolling = false;
 }
+
+/**
+ * Rola a Iniciativa: 2d10 + (INS − Peso da Arma escolhida).
+ * O modificador já vem pronto de calcInitiativeMod (state.js).
+ */
+export function rollInitiative() {
+  if (_rolling) return;
+  _rolling = true;
+
+  const agent = getActiveAgent();
+  if (!agent) { _rolling = false; return; }
+
+  const mod = calcInitiativeMod(agent);
+
+  if (elSkill())   elSkill().textContent   = 'INICIATIVA';
+  if (elQuality()) { elQuality().textContent = ''; elQuality().className = 'roll-result__quality'; }
+  if (elTotal())   { elTotal().textContent = '?';  elTotal().style.color = ''; }
+
+  const FRAMES = 10, MS = 55;
+  let f = 0;
+  const ticker = setInterval(() => {
+    if (elD1()) elD1().textContent = rand(1, 10);
+    if (elD2()) elD2().textContent = rand(1, 10);
+    f++;
+    if (f >= FRAMES) {
+      clearInterval(ticker);
+      const d1    = rand(1, 10);
+      const d2    = rand(1, 10);
+      const total = d1 + d2 + mod;
+      const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+
+      const diceHtml = `
+        <span class="roll-die">${d1}</span>
+        <span class="roll-sep">+</span>
+        <span class="roll-die">${d2}</span>
+        <span class="roll-sep">+</span>
+        <span class="roll-mod">${modStr}</span>`;
+
+      showResult('Iniciativa', d1, d2, modStr, total, diceHtml);
+
+      const entry = { skill: 'Iniciativa', d1, d2, mod, bonus: 0, total, ts: Date.now() };
+      pushRollHistory(entry);
+      populateRollHistory(getActiveAgent());
+      sendRoll('Iniciativa', d1, d2, mod, 0, total, false);
+
+      _rolling = false;
+    }
+  }, MS);
+}
+
 const SKILL_NAMES = {
   'atletismo':'Atletismo','forca':'Força','resistencia-fisica':'Resistência Física',
   'sobrevivencia':'Sobrevivência','intuicao':'Intuição','percepcao':'Percepção',
