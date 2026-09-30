@@ -12,7 +12,8 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
 
     // Aba 0 — Identidade
     name, title,
-    forma: '', age: '', birthdate: '', history: '',
+    formaPrimaria: '', formaSecundaria: '',
+    age: '', birthdate: '', history: '',
     photo: '',
     photoOffsetX: 50,   // % object-position horizontal
     photoOffsetY: 50,   // % object-position vertical
@@ -32,8 +33,18 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     // Fonte
     fonteCur: 0, fonteType: 'poder',
 
+    // Tipo do personagem: Ordem | Adrenalina | Ruína
+    charType: '',
+
     // Fontes de Ação
     actionSources: [false, false, false, false, false],
+
+    // Salvaguarda — testes contra a morte (3 hexágonos Vida / 3 hexágonos Morte)
+    salvaguardaVida:  [false, false, false],
+    salvaguardaMorte: [false, false, false],
+
+    // Condições Ativas (texto livre)
+    activeConditions: '',
 
     // Aba 1 — Desenvolvimento
     devAprendizado:     0,   // 0–5
@@ -43,11 +54,15 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     // Aba 2 — Histórico de rolagens (persistido)
     rollHistory: [],         // [{ skill, d1, d2, mod, total, ts }]
 
+    // Aba 2 — Arma escolhida para cálculo de Iniciativa
+    initiativeWeaponId: '',
+
     // Aba 3 — Arsenal
     rd: 0, credits: 0,
     rdTier: 'comum',         // 'comum' | 'desenvolvido' | 'avancado'
     equipment: [],
     vehicles: [],
+    consumables: [],
 
     // Aba 4 — Habilidades
     abilities: [],
@@ -58,11 +73,23 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
 }
 
 function createEquipmentItem() {
-  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0 };
+  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0' };
 }
 
 function createVehicleItem() {
-  return { id: generateId(), type: '', market: '', maneuver: '', properties: '', criticalInjuries: '' };
+  return {
+    id: generateId(),
+    name: '', market: '', category: 'leve',   // 'leve' | 'medio' | 'pesado' | 'aereo'
+    cascoCur: '', cascoMax: '',
+    rd: '',
+    maneuver: '',
+    criticalInjuries: [false, false, false],
+    properties: '',
+  };
+}
+
+function createConsumable() {
+  return { id: generateId(), name: '', function: 'sobrevivencia', description: '', qty: 1 };
 }
 
 function createAbility() {
@@ -83,14 +110,31 @@ function mergeWithDefaults(agent) {
   merged.attrs   = { ...defaults.attrs, ...(agent.attrs || {}) };
   merged.actionSources = Array.isArray(agent.actionSources) ? agent.actionSources : defaults.actionSources;
   merged.equipment  = Array.isArray(agent.equipment)
-    ? agent.equipment.map(e => ({ weaponAttr: 'fis', weaponBonus: 0, ...e }))
+    ? agent.equipment.map(e => ({ weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', ...e }))
     : [];
-  merged.vehicles = Array.isArray(agent.vehicles) ? agent.vehicles : [];
+  // Veículos: migra formato antigo (type/maneuver texto/criticalInjuries texto) para o novo
+  merged.vehicles = Array.isArray(agent.vehicles)
+    ? agent.vehicles.map(v => ({
+        id: v.id || generateId(),
+        name: v.name ?? v.type ?? '',
+        market: v.market ?? '',
+        category: v.category ?? 'leve',
+        cascoCur: v.cascoCur ?? '',
+        cascoMax: v.cascoMax ?? '',
+        rd: v.rd ?? '',
+        maneuver: v.maneuver ?? '',
+        criticalInjuries: Array.isArray(v.criticalInjuries) ? v.criticalInjuries : [false, false, false],
+        properties: v.properties ?? '',
+      }))
+    : [];
+  merged.consumables = Array.isArray(agent.consumables) ? agent.consumables : [];
   merged.abilities  = Array.isArray(agent.abilities)  ? agent.abilities  : [];
   merged.notes = Array.isArray(agent.notes)
     ? agent.notes.map(n => ({ createdAt: Date.now(), ...n }))
     : [];
   merged.rollHistory = Array.isArray(agent.rollHistory) ? agent.rollHistory : [];
+  merged.salvaguardaVida  = Array.isArray(agent.salvaguardaVida)  ? agent.salvaguardaVida  : [false, false, false];
+  merged.salvaguardaMorte = Array.isArray(agent.salvaguardaMorte) ? agent.salvaguardaMorte : [false, false, false];
   // photo offset defaults
   if (merged.photoOffsetX === undefined) merged.photoOffsetX = 50;
   if (merged.photoOffsetY === undefined) merged.photoOffsetY = 50;
@@ -99,13 +143,22 @@ function mergeWithDefaults(agent) {
   if (merged.devDesenvolvimento === undefined) merged.devDesenvolvimento = 0;
   if (merged.devPotencial       === undefined) merged.devPotencial       = 0;
   if (merged.rdTier             === undefined) merged.rdTier             = 'comum';
-  // migração: campo renomeado de 'focus' para 'forma'
-  if (!merged.forma && agent.focus) merged.forma = agent.focus;
+  // migração: campo único 'forma' (ou legado 'focus') vira formaPrimaria
+  if (!merged.formaPrimaria && (agent.forma || agent.focus)) {
+    merged.formaPrimaria = agent.forma || agent.focus;
+  }
+  if (merged.formaSecundaria === undefined) merged.formaSecundaria = '';
   // photo scale default
   if (merged.photoScale === undefined) merged.photoScale = 1;
   // webhook defaults
   if (merged.webhookRolagens === undefined) merged.webhookRolagens = '';
   if (merged.webhookStatus   === undefined) merged.webhookStatus   = '';
+  // tipo do personagem
+  if (merged.charType === undefined) merged.charType = '';
+  // condições ativas
+  if (merged.activeConditions === undefined) merged.activeConditions = '';
+  // arma de iniciativa
+  if (merged.initiativeWeaponId === undefined) merged.initiativeWeaponId = '';
   return merged;
 }
 
@@ -125,6 +178,24 @@ export function calcSkillMod(agent, formula) {
     raz_prs: Math.floor((a.raz + a.prs) / 2),
   };
   return map[formula] ?? 0;
+}
+
+/**
+ * Calcula o modificador de Iniciativa: INS - Peso da Arma escolhida.
+ * Se nenhuma arma estiver selecionada, ou a selecionada não existir mais,
+ * assume peso "+0".
+ */
+export function calcInitiativeMod(agent) {
+  const weapon = (agent.equipment || []).find(e => e.id === agent.initiativeWeaponId);
+  const weight = parseWeaponWeight(weapon?.weaponWeight);
+  return agent.attrs.ins - weight;
+}
+
+/** Converte string de peso ("+1", "-2", "0") em número. */
+export function parseWeaponWeight(str) {
+  if (!str) return 0;
+  const n = parseInt(String(str).replace('+', ''), 10);
+  return isNaN(n) ? 0 : n;
 }
 
 /* ── LOCALSTORAGE ── */
@@ -212,6 +283,13 @@ export function toggleActionSource(index) {
   saveAgent(_active);
 }
 
+export function toggleSalvaguarda(track, index) {
+  if (!_active) return;
+  const key = track === 'vida' ? 'salvaguardaVida' : 'salvaguardaMorte';
+  _active[key][index] = !_active[key][index];
+  saveAgent(_active);
+}
+
 export function setFonteCur(value) {
   if (!_active) return;
   _active.fonteCur = Math.max(0, Math.min(10, Number(value)));
@@ -280,9 +358,41 @@ export function updateVehicleField(itemId, field, value) {
   const item = _active.vehicles.find(v => v.id === itemId);
   if (item) { item[field] = value; saveAgent(_active); }
 }
+export function toggleVehicleCriticalInjury(itemId, index) {
+  if (!_active) return;
+  const item = _active.vehicles.find(v => v.id === itemId);
+  if (item) { item.criticalInjuries[index] = !item.criticalInjuries[index]; saveAgent(_active); }
+}
 export function removeVehicle(itemId) {
   if (!_active) return;
   _active.vehicles = _active.vehicles.filter(v => v.id !== itemId);
+  saveAgent(_active);
+}
+
+/* ── CONSUMABLES ── */
+export function addConsumable() {
+  if (!_active) return null;
+  const item = createConsumable();
+  _active.consumables.push(item);
+  saveAgent(_active);
+  return item;
+}
+export function updateConsumableField(itemId, field, value) {
+  if (!_active) return;
+  const item = _active.consumables.find(c => c.id === itemId);
+  if (item) { item[field] = value; saveAgent(_active); }
+}
+export function stepConsumableQty(itemId, dir) {
+  if (!_active) return;
+  const item = _active.consumables.find(c => c.id === itemId);
+  if (item) {
+    item.qty = Math.max(0, (item.qty ?? 0) + (dir === 'inc' ? 1 : -1));
+    saveAgent(_active);
+  }
+}
+export function removeConsumable(itemId) {
+  if (!_active) return;
+  _active.consumables = _active.consumables.filter(c => c.id !== itemId);
   saveAgent(_active);
 }
 
@@ -365,7 +475,9 @@ export function exportAgentTxt(id) {
     '',
     `  NOME ......... ${agent.name || '—'}`,
     `  TÍTULO ....... ${agent.title || '—'}`,
-    `  FORMA ........ ${agent.forma || '—'}`,
+    `  TIPO ......... ${agent.charType || '—'}`,
+    `  FORMA 1ª ...... ${agent.formaPrimaria || '—'}`,
+    `  FORMA 2ª ...... ${agent.formaSecundaria || '—'}`,
     `  IDADE ........ ${agent.age || '—'}`,
     `  NASCIMENTO ... ${agent.birthdate || '—'}`,
     '',
