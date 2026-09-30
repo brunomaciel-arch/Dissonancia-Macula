@@ -3,16 +3,17 @@
    ══════════════════════════════════════════════════════ */
 
 import { sendStatus, sendTest } from './webhook.js';
-import { rollWeapon } from './dice.js';
+import { rollWeapon, rollInitiative } from './dice.js';
 import {
   loadAllAgents, createAgent, deleteAgent,
   openAgent, getActiveAgent, setField,
   setAttr, stepAttr, setBmCur, setVidaCur,
-  setFonteCur, toggleActionSource,
-  calcBmMax, calcSkillMod,
+  setFonteCur, toggleActionSource, toggleSalvaguarda,
+  calcBmMax, calcSkillMod, calcInitiativeMod,
   exportAgent, exportAgentTxt, importAgentFromFile,
   addEquipment, updateEquipmentField, removeEquipment,
-  addVehicle, updateVehicleField, removeVehicle,
+  addVehicle, updateVehicleField, removeVehicle, toggleVehicleCriticalInjury,
+  addConsumable, updateConsumableField, stepConsumableQty, removeConsumable,
   addAbility, updateAbilityField, removeAbility,
   addNote, updateNoteField, removeNote,
   stepDev, setPhotoOffset,
@@ -156,7 +157,7 @@ function populateTab0(agent) {
     if (placeholder) placeholder.style.display = '';
   }
 
-  ['name','title','forma','age','birthdate','history'].forEach(f => {
+  ['name','title','formaPrimaria','formaSecundaria','age','birthdate','history'].forEach(f => {
     const el = $(`[data-field="${f}"]`);
     if (el) el.value = agent[f] ?? '';
   });
@@ -212,7 +213,20 @@ function populateTab1(agent) {
   $('#fonte-type').value = agent.fonteType || 'poder';
   renderFontePips(agent);
 
-  $$('.hex-pip').forEach((h, i) => h.classList.toggle('active', agent.actionSources[i] === true));
+  $$('#hex-group .hex-pip').forEach((h, i) => h.classList.toggle('active', agent.actionSources[i] === true));
+
+  // Tipo do personagem
+  $$('.char-type-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === agent.charType);
+  });
+
+  // Salvaguarda
+  $$('#salvaguarda-vida-group .hex-pip').forEach((h, i) => h.classList.toggle('active', agent.salvaguardaVida[i] === true));
+  $$('#salvaguarda-morte-group .hex-pip').forEach((h, i) => h.classList.toggle('active', agent.salvaguardaMorte[i] === true));
+
+  // Condições Ativas
+  const condEl = $('#active-conditions');
+  if (condEl) condEl.value = agent.activeConditions ?? '';
 
   // Desenvolvimento
   const devMap = { devAprendizado: ['dev-aprendizado','dev-bar-aprendizado',5], devDesenvolvimento: ['dev-desenvolvimento','dev-bar-desenvolvimento',30], devPotencial: ['dev-potencial','dev-bar-potencial',10] };
@@ -301,6 +315,36 @@ function populateTab2(agent) {
     const el = $(`#skill-val-${row.dataset.skill}`);
     if (el) el.textContent = calcSkillMod(agent, row.dataset.formula);
   });
+
+  // Iniciativa
+  populateInitiativeWeaponSelect(agent);
+  const initVal = $('#initiative-val');
+  if (initVal) initVal.textContent = calcInitiativeMod(agent);
+}
+
+/** Popula o seletor de arma usado no cálculo de Iniciativa com as armas do Arsenal. */
+export function populateInitiativeWeaponSelect(agent) {
+  const sel = $('#initiative-weapon-select');
+  if (!sel || !agent) return;
+  const currentVal = agent.initiativeWeaponId || '';
+
+  sel.innerHTML = '<option value="">Sem arma (+0)</option>';
+  (agent.equipment || []).forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = `${item.name || 'Sem nome'} (${item.weaponWeight || '+0'})`;
+    if (item.id === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Se a arma selecionada não existe mais, reseta
+  if (currentVal && !agent.equipment.find(e => e.id === currentVal)) {
+    setField('initiativeWeaponId', '');
+    sel.value = '';
+  }
+
+  const initVal = $('#initiative-val');
+  if (initVal) initVal.textContent = calcInitiativeMod(getActiveAgent());
 }
 
 export function populateRollHistory(agent) {
@@ -404,6 +448,7 @@ function populateTab3(agent) {
 
   renderEquipmentTable(agent);
   renderVehicleTable(agent);
+  renderConsumableTable(agent);
 }
 
 export function renderEquipmentTable(agent) {
@@ -426,6 +471,7 @@ function buildEquipmentRow(item) {
     { key:'range',       cls:'--sm', ph:'—' },
     { key:'price',       cls:'--sm', ph:'—' },
     { key:'qty',         cls:'--xs', ph:'1', type:'number' },
+    { key:'weaponWeight',cls:'--xs', ph:'+0' },
   ].forEach(f => {
     const td = document.createElement('td');
     const inp = document.createElement('input');
@@ -434,9 +480,18 @@ function buildEquipmentRow(item) {
     inp.value       = item[f.key] ?? '';
     inp.placeholder = f.ph;
     inp.addEventListener('change', () => {
-      updateEquipmentField(item.id, f.key, inp.value);
+      let val = inp.value;
+      // Sanitiza Peso da Arma: apenas números com sinal +/-
+      if (f.key === 'weaponWeight') {
+        const n = parseInt(val.replace(/[^\d-]/g, ''), 10);
+        val = isNaN(n) ? '+0' : (n >= 0 ? `+${n}` : `${n}`);
+        inp.value = val;
+        populateInitiativeWeaponSelect(getActiveAgent());
+      }
+      updateEquipmentField(item.id, f.key, val);
       // Se o campo dano mudou, reatualizar lista de armas
       if (f.key === 'damage') renderWeapons(getActiveAgent());
+      if (f.key === 'name') populateInitiativeWeaponSelect(getActiveAgent());
     });
     td.appendChild(inp);
     tr.appendChild(td);
@@ -448,6 +503,7 @@ function buildEquipmentRow(item) {
     removeEquipment(item.id); tr.remove();
     if (!getActiveAgent().equipment.length) $('#equipment-empty').style.display = '';
     renderWeapons(getActiveAgent());
+    populateInitiativeWeaponSelect(getActiveAgent());
   });
   tdBtn.appendChild(btn);
   tr.appendChild(tdBtn);
@@ -456,44 +512,174 @@ function buildEquipmentRow(item) {
 
 /* ── Veículos ── */
 export function renderVehicleTable(agent) {
-  const tbody = $('#vehicle-body');
+  const list  = $('#vehicle-list');
   const empty = $('#vehicle-empty');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+  if (!list) return;
+  $$('.vehicle-card', list).forEach(c => c.remove());
   if (!agent.vehicles?.length) { if (empty) empty.style.display = ''; return; }
   if (empty) empty.style.display = 'none';
-  agent.vehicles.forEach(item => tbody.appendChild(buildVehicleRow(item)));
+  agent.vehicles.forEach(item => list.appendChild(buildVehicleCard(item)));
 }
 
-function buildVehicleRow(item) {
-  const tr = document.createElement('tr');
-  tr.dataset.vehicleId = item.id;
-  [
-    { key:'type',             cls:'',     ph:'Ex: Moto, Blindado...' },
-    { key:'market',           cls:'--sm', ph:'—' },
-    { key:'maneuver',         cls:'--sm', ph:'—' },
-    { key:'properties',       cls:'',     ph:'—' },
-    { key:'criticalInjuries', cls:'',     ph:'—' },
-  ].forEach(f => {
-    const td = document.createElement('td');
-    const inp = document.createElement('input');
-    inp.className   = `eq-input eq-input${f.cls}`;
-    inp.type        = 'text';
-    inp.value       = item[f.key] ?? '';
-    inp.placeholder = f.ph;
-    inp.addEventListener('change', () => updateVehicleField(item.id, f.key, inp.value));
-    td.appendChild(inp);
-    tr.appendChild(td);
-  });
-  const tdBtn = document.createElement('td');
-  const btn   = document.createElement('button');
-  btn.className = 'btn-remove-row'; btn.textContent = '✕';
-  btn.addEventListener('click', () => {
-    removeVehicle(item.id); tr.remove();
+function buildVehicleCard(item) {
+  const card = document.createElement('div');
+  card.className = 'vehicle-card';
+  card.dataset.vehicleId = item.id;
+
+  const categories = [
+    { val: 'leve',   label: 'Leve' },
+    { val: 'medio',  label: 'Médio' },
+    { val: 'pesado', label: 'Pesado' },
+    { val: 'aereo',  label: 'Aéreo' },
+  ];
+  const catButtons = categories.map(c =>
+    `<button class="vehicle-cat-btn${item.category === c.val ? ' active' : ''}" data-cat="${c.val}">${c.label}</button>`
+  ).join('');
+
+  const critHexes = [0, 1, 2].map(i =>
+    `<button class="hex-pip hex-pip--sm hex-pip--red${item.criticalInjuries[i] ? ' active' : ''}" data-crit-index="${i}"></button>`
+  ).join('');
+
+  card.innerHTML = `
+    <div class="vehicle-card__top">
+      <input class="vehicle-name-input" type="text" placeholder="Nome / Modelo / Mercado..." value="${esc(item.name || '')}" />
+      <button class="vehicle-remove" title="Remover veículo">✕</button>
+    </div>
+    <div class="vehicle-cat-row">${catButtons}</div>
+    <div class="vehicle-fields-row">
+      <div class="vehicle-field">
+        <label class="vehicle-field__label">Casco</label>
+        <div class="vehicle-field__pair">
+          <input class="vehicle-input vehicle-input--xs" type="text" data-field="cascoCur" placeholder="0" value="${esc(item.cascoCur||'')}" />
+          <span class="vehicle-field__sep">/</span>
+          <input class="vehicle-input vehicle-input--xs" type="text" data-field="cascoMax" placeholder="0" value="${esc(item.cascoMax||'')}" />
+        </div>
+      </div>
+      <div class="vehicle-field">
+        <label class="vehicle-field__label">Blindagem (RD)</label>
+        <input class="vehicle-input vehicle-input--xs" type="text" data-field="rd" placeholder="0" value="${esc(item.rd||'')}" />
+      </div>
+      <div class="vehicle-field">
+        <label class="vehicle-field__label">Manobra</label>
+        <input class="vehicle-input vehicle-input--xs" type="text" data-field="maneuver" placeholder="0" value="${esc(item.maneuver||'')}" />
+      </div>
+      <div class="vehicle-field vehicle-field--crit">
+        <label class="vehicle-field__label">Lesões Críticas</label>
+        <div class="hex-group hex-group--sm">${critHexes}</div>
+      </div>
+    </div>
+    <div class="vehicle-field vehicle-field--full">
+      <label class="vehicle-field__label">Propriedades</label>
+      <textarea class="vehicle-textarea" data-field="properties" placeholder="Propriedades especiais...">${esc(item.properties||'')}</textarea>
+    </div>
+  `;
+
+  card.querySelector('.vehicle-name-input').addEventListener('input', e => updateVehicleField(item.id, 'name', e.target.value));
+  card.querySelector('.vehicle-remove').addEventListener('click', () => {
+    removeVehicle(item.id); card.remove();
     if (!getActiveAgent().vehicles.length) $('#vehicle-empty').style.display = '';
   });
-  tdBtn.appendChild(btn);
-  tr.appendChild(tdBtn);
+  card.querySelectorAll('.vehicle-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      updateVehicleField(item.id, 'category', btn.dataset.cat);
+      card.querySelectorAll('.vehicle-cat-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+  card.querySelectorAll('[data-field]').forEach(el => {
+    const ev = el.tagName === 'TEXTAREA' ? 'input' : 'change';
+    el.addEventListener(ev, () => updateVehicleField(item.id, el.dataset.field, el.value));
+  });
+  card.querySelectorAll('[data-crit-index]').forEach(hex => {
+    hex.addEventListener('click', () => {
+      const idx = Number(hex.dataset.critIndex);
+      toggleVehicleCriticalInjury(item.id, idx);
+      const updated = getActiveAgent().vehicles.find(v => v.id === item.id);
+      hex.classList.toggle('active', updated.criticalInjuries[idx]);
+    });
+  });
+
+  return card;
+}
+
+/* ── Consumíveis ── */
+export function renderConsumableTable(agent) {
+  const tbody = $('#consumable-body');
+  const empty = $('#consumable-empty');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!agent.consumables?.length) { if (empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
+  agent.consumables.forEach(item => tbody.appendChild(buildConsumableRow(item)));
+}
+
+function buildConsumableRow(item) {
+  const tr = document.createElement('tr');
+  tr.dataset.consumableId = item.id;
+
+  const tdName = document.createElement('td');
+  const nameInp = document.createElement('input');
+  nameInp.className = 'eq-input';
+  nameInp.type = 'text';
+  nameInp.placeholder = 'Nome...';
+  nameInp.value = item.name ?? '';
+  nameInp.addEventListener('change', () => updateConsumableField(item.id, 'name', nameInp.value));
+  tdName.appendChild(nameInp);
+
+  const tdFunc = document.createElement('td');
+  const funcSel = document.createElement('select');
+  funcSel.className = 'weapon-attr-select';
+  [
+    ['sobrevivencia', 'Sobrevivência'],
+    ['ofensiva', 'Ofensiva'],
+    ['utilidade', 'Utilidade'],
+  ].forEach(([val, label]) => {
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = label;
+    if ((item.function || 'sobrevivencia') === val) opt.selected = true;
+    funcSel.appendChild(opt);
+  });
+  funcSel.addEventListener('change', () => updateConsumableField(item.id, 'function', funcSel.value));
+  tdFunc.appendChild(funcSel);
+
+  const tdDesc = document.createElement('td');
+  const descInp = document.createElement('input');
+  descInp.className = 'eq-input';
+  descInp.type = 'text';
+  descInp.placeholder = 'Descrição...';
+  descInp.value = item.description ?? '';
+  descInp.addEventListener('change', () => updateConsumableField(item.id, 'description', descInp.value));
+  tdDesc.appendChild(descInp);
+
+  const tdQty = document.createElement('td');
+  const qtyWrap = document.createElement('div');
+  qtyWrap.className = 'consumable-qty-ctrl';
+  const decBtn = document.createElement('button');
+  decBtn.className = 'consumable-qty-btn'; decBtn.textContent = '−';
+  const qtyVal = document.createElement('span');
+  qtyVal.className = 'consumable-qty-val'; qtyVal.textContent = item.qty ?? 0;
+  const incBtn = document.createElement('button');
+  incBtn.className = 'consumable-qty-btn'; incBtn.textContent = '+';
+  decBtn.addEventListener('click', () => {
+    stepConsumableQty(item.id, 'dec');
+    qtyVal.textContent = getActiveAgent().consumables.find(c => c.id === item.id).qty;
+  });
+  incBtn.addEventListener('click', () => {
+    stepConsumableQty(item.id, 'inc');
+    qtyVal.textContent = getActiveAgent().consumables.find(c => c.id === item.id).qty;
+  });
+  qtyWrap.append(decBtn, qtyVal, incBtn);
+  tdQty.appendChild(qtyWrap);
+
+  const tdBtn = document.createElement('td');
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove-row'; removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', () => {
+    removeConsumable(item.id); tr.remove();
+    if (!getActiveAgent().consumables.length) $('#consumable-empty').style.display = '';
+  });
+  tdBtn.appendChild(removeBtn);
+
+  tr.append(tdName, tdFunc, tdDesc, tdQty, tdBtn);
   return tr;
 }
 
@@ -936,7 +1122,7 @@ export function bindSheetEvents() {
   });
 
   // ── Hexágonos Fontes de Ação ──
-  $$('.hex-pip').forEach(h => {
+  $$('#hex-group .hex-pip').forEach(h => {
     h.addEventListener('click', () => {
       toggleActionSource(Number(h.dataset.index));
       h.classList.toggle('active', getActiveAgent().actionSources[Number(h.dataset.index)]);
@@ -946,6 +1132,31 @@ export function bindSheetEvents() {
   // ── Tipo de Fonte ──
   $('#fonte-type').addEventListener('change', e => setField('fonteType', e.target.value));
 
+  // ── Tipo do Personagem (Ordem / Adrenalina / Ruína) ──
+  $$('.char-type-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setField('charType', btn.dataset.type);
+      $$('.char-type-option').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // ── Salvaguarda (testes contra a morte) ──
+  $$('#salvaguarda-vida-group .hex-pip').forEach((h, i) => {
+    h.addEventListener('click', () => {
+      toggleSalvaguarda('vida', i);
+      h.classList.toggle('active', getActiveAgent().salvaguardaVida[i]);
+    });
+  });
+  $$('#salvaguarda-morte-group .hex-pip').forEach((h, i) => {
+    h.addEventListener('click', () => {
+      toggleSalvaguarda('morte', i);
+      h.classList.toggle('active', getActiveAgent().salvaguardaMorte[i]);
+    });
+  });
+
+  // ── Condições Ativas ──
+  $('#active-conditions')?.addEventListener('input', e => setField('activeConditions', e.target.value));
+
   // ── Arsenal: adicionar item ──
   $('#btn-add-equipment').addEventListener('click', () => {
     const item = addEquipment();
@@ -953,12 +1164,31 @@ export function bindSheetEvents() {
     $('#equipment-empty').style.display = 'none';
     tbody.appendChild(buildEquipmentRow(item));
     renderWeapons(getActiveAgent());
+    populateInitiativeWeaponSelect(getActiveAgent());
   });
 
   // ── Arsenal: adicionar veículo ──
   $('#btn-add-vehicle')?.addEventListener('click', () => {
     addVehicle();
     renderVehicleTable(getActiveAgent());
+  });
+
+  // ── Arsenal: adicionar consumível ──
+  $('#btn-add-consumable')?.addEventListener('click', () => {
+    addConsumable();
+    renderConsumableTable(getActiveAgent());
+  });
+
+  // ── Perícias: seletor de arma para Iniciativa ──
+  $('#initiative-weapon-select')?.addEventListener('change', e => {
+    setField('initiativeWeaponId', e.target.value);
+    const initVal = $('#initiative-val');
+    if (initVal) initVal.textContent = calcInitiativeMod(getActiveAgent());
+  });
+
+  // ── Perícias: rolar Iniciativa ──
+  $('#btn-roll-initiative')?.addEventListener('click', () => {
+    rollInitiative();
   });
 
   // ── Habilidades: adicionar ──
