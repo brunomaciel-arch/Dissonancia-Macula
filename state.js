@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   LIMIAR DA CORRUPÇÃO — state.js  (v2)
+   DISSONÂNCIA & MÁCULA — state.js  (v2)
    ══════════════════════════════════════════════════════ */
 
 const STORAGE_KEY = 'limiar_agents';
@@ -441,7 +441,7 @@ export function exportAgent(id) {
   const blob = new Blob([JSON.stringify(agent, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `${sanitize(agent.name)}_limiar.json`; a.click();
+  a.href = url; a.download = `${sanitize(agent.name)}_dissonancia-macula.json`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
@@ -469,7 +469,7 @@ export function exportAgentTxt(id) {
 
   L(
     line('═'),
-    '  LIMIAR DA CORRUPÇÃO',
+    '  DISSONÂNCIA & MÁCULA',
     '  FICHA DE PERSONAGEM',
     line('═'),
     '',
@@ -564,7 +564,7 @@ export function exportAgentTxt(id) {
   const url      = URL.createObjectURL(blob);
   const a        = document.createElement('a');
   a.href         = url;
-  a.download     = `${sanitize(agent.name)}_limiar.txt`;
+  a.download     = `${sanitize(agent.name)}_dissonancia-macula.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
