@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   LIMIAR DA CORRUPÇÃO — app.js
+   DISSONÂNCIA & MÁCULA — app.js
    Entry Point: inicializa e conecta todos os módulos.
    ══════════════════════════════════════════════════════ */
 
@@ -43,5 +43,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  console.log('[Limiar] Aplicação inicializada.');
+  console.log('[Dissonância & Mácula] Aplicação inicializada.');
 });
