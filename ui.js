@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   LIMIAR DA CORRUPÇÃO — ui.js  (v2)
+   DISSONÂNCIA & MÁCULA — ui.js  (v2)
    ══════════════════════════════════════════════════════ */
 
 import { sendStatus, sendTest } from './webhook.js';
