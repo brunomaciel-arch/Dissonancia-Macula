@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   LIMIAR DA CORRUPÇÃO — dice.js  (v5 completo)
+   DISSONÂNCIA & MÁCULA — dice.js  (v5 completo)
    ══════════════════════════════════════════════════════ */
 
 import { getActiveAgent, calcSkillMod, calcInitiativeMod, pushRollHistory } from './state.js';
