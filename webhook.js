@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   LIMIAR DA CORRUPÇÃO — webhook.js  (v5 completo)
+   DISSONÂNCIA & MÁCULA — webhook.js  (v5 completo)
    ══════════════════════════════════════════════════════ */
 
 import { getActiveAgent, calcBmMax } from './state.js';
@@ -189,7 +189,7 @@ export async function sendTest(url, type) {
       color: 0x00e5ff,
       title: type === 'rolagens' ? '🎲  Teste — Rolagens' : '📊  Teste — Status',
       description: 'Webhook configurado com sucesso!',
-      footer: { text: 'Limiar da Corrupção' },
+      footer: { text: 'Dissonância & Mácula' },
       timestamp: new Date().toISOString(),
     }],
   });
