@@ -1,7 +1,7 @@
 # Dissonância & Mácula — Ficha de Personagem Online
 
 Sistema completo de gerenciamento de fichas para o RPG de mesa **Dissonância & Mácula**.
-Acesse em: **https://brunomaciel-arch.github.io/Limiar-da-Corrupcao/**
+Acesse em: **https://brunomaciel-arch.github.io/Dissonancia-Macula/**
 
 ---
 
@@ -45,10 +45,10 @@ Controle completo dos valores vitais, atributos e estado do personagem.
 **Status Vitais:**
 - **Vida** — valor atual pode chegar até −10, entrando na **Zona Crítica**, destacada na barra com padrão de listras vermelhas. Botões de atalho: Máximo (restaura ao total) e campo ±valor para adicionar ou remover uma quantidade específica
 - **Barreira Mágica** — limite calculado automaticamente por (RAZ + INS) × 5. Mesmos atalhos da Vida
-- **Fonte** — 0 a 10 pips interativos. Tipo selecionável: Poder, Corrupção ou Adrenalina
-- **Tipo do Personagem** — seletor de Ordem, Adrenalina ou Ruína
-- **Fontes de Ação** — 5 hexágonos que funcionam como checkboxes de uso
-- **Salvaguarda** — testes contra a morte: 3 hexágonos de Vida e 3 de Morte, cada um ativado/desativado individualmente
+- **Tipo do Personagem** — seletor de Ordem, Adrenalina ou Ruína. Também define o tipo exibido na Fonte (nos exports e no Discord)
+- **Fonte** — 0 a 10 pips interativos
+- **Fontes de Ação** — 5 hexágonos de uso. Clicar numa caixa preenche também todas as anteriores; clicar numa caixa já preenchida esvazia ela e as seguintes
+- **Salvaguarda** — testes contra a morte: 3 hexágonos de Vida e 3 de Morte, com o mesmo preenchimento em sequência das Fontes de Ação
 
 **Condições Ativas** — campo de texto livre para traumas de exposição e efeitos ativos em curso.
 
@@ -61,7 +61,7 @@ Controle completo dos valores vitais, atributos e estado do personagem.
 
 ### Aba Perícias
 
-20 perícias organizadas por atributo base, mais o cálculo de Iniciativa. Clique em qualquer perícia para rolar os dados.
+A aba abre com os blocos de **Iniciativa** e **Arsenal — Dano** no topo, seguidos pelas 20 perícias organizadas por atributo base. Todos os blocos ocupam a largura total, com as perícias distribuídas em colunas dentro de cada um. Clique em qualquer perícia para rolar os dados.
 
 **Grupos:**
 - Físico: Atletismo, Força, Resistência Física
