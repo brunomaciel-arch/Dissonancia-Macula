@@ -8,7 +8,7 @@ import {
   loadAllAgents, createAgent, deleteAgent,
   openAgent, getActiveAgent, setField,
   setAttr, stepAttr, setBmCur, setVidaCur,
-  setFonteCur, toggleActionSource, toggleSalvaguarda,
+  setFonteCur, pressActionSource, pressSalvaguarda,
   calcBmMax, calcSkillMod, calcInitiativeMod,
   exportAgent, exportAgentTxt, importAgentFromFile,
   addEquipment, updateEquipmentField, removeEquipment,
@@ -19,6 +19,7 @@ import {
   stepDev, setPhotoOffset,
   clearRollHistory,
   getTheme, setTheme,
+  getFormaOptions,
 } from './state.js';
 
 const $ = (s, c = document) => c.querySelector(s);
@@ -157,11 +158,33 @@ function populateTab0(agent) {
     if (placeholder) placeholder.style.display = '';
   }
 
-  ['name','title','formaPrimaria','formaSecundaria','age','birthdate','history'].forEach(f => {
+  populateFormaSelects(agent);
+
+  ['name','title','age','birthdate','history'].forEach(f => {
     const el = $(`[data-field="${f}"]`);
     if (el) el.value = agent[f] ?? '';
   });
   updateSummary(agent);
+}
+
+/** Monta as opções dos seletores de Forma Primária/Secundária e seleciona o valor salvo. */
+function populateFormaSelects(agent) {
+  [
+    ['#agent-forma-primaria',   'formaPrimaria'],
+    ['#agent-forma-secundaria', 'formaSecundaria'],
+  ].forEach(([sel, field]) => {
+    const el = $(sel);
+    if (!el) return;
+    const current = agent[field] ?? '';
+    el.innerHTML = '';
+    getFormaOptions(current).forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      el.appendChild(opt);
+    });
+    el.value = current;
+  });
 }
 
 export function updateSummary(agent) {
@@ -210,7 +233,6 @@ function populateTab1(agent) {
   $('#bm-formula-result').textContent = bmMax;
   updateBmBar(agent);
 
-  $('#fonte-type').value = agent.fonteType || 'poder';
   renderFontePips(agent);
 
   $$('#hex-group .hex-pip').forEach((h, i) => h.classList.toggle('active', agent.actionSources[i] === true));
@@ -1124,13 +1146,11 @@ export function bindSheetEvents() {
   // ── Hexágonos Fontes de Ação ──
   $$('#hex-group .hex-pip').forEach(h => {
     h.addEventListener('click', () => {
-      toggleActionSource(Number(h.dataset.index));
-      h.classList.toggle('active', getActiveAgent().actionSources[Number(h.dataset.index)]);
+      pressActionSource(Number(h.dataset.index));
+      const states = getActiveAgent().actionSources;
+      $$('#hex-group .hex-pip').forEach((el, i) => el.classList.toggle('active', states[i] === true));
     });
   });
-
-  // ── Tipo de Fonte ──
-  $('#fonte-type').addEventListener('change', e => setField('fonteType', e.target.value));
 
   // ── Tipo do Personagem (Ordem / Adrenalina / Ruína) ──
   $$('.char-type-option').forEach(btn => {
@@ -1141,16 +1161,16 @@ export function bindSheetEvents() {
   });
 
   // ── Salvaguarda (testes contra a morte) ──
-  $$('#salvaguarda-vida-group .hex-pip').forEach((h, i) => {
-    h.addEventListener('click', () => {
-      toggleSalvaguarda('vida', i);
-      h.classList.toggle('active', getActiveAgent().salvaguardaVida[i]);
-    });
-  });
-  $$('#salvaguarda-morte-group .hex-pip').forEach((h, i) => {
-    h.addEventListener('click', () => {
-      toggleSalvaguarda('morte', i);
-      h.classList.toggle('active', getActiveAgent().salvaguardaMorte[i]);
+  [
+    ['vida',  '#salvaguarda-vida-group',  'salvaguardaVida'],
+    ['morte', '#salvaguarda-morte-group', 'salvaguardaMorte'],
+  ].forEach(([track, groupSel, key]) => {
+    $$(`${groupSel} .hex-pip`).forEach((h, i) => {
+      h.addEventListener('click', () => {
+        pressSalvaguarda(track, i);
+        const states = getActiveAgent()[key];
+        $$(`${groupSel} .hex-pip`).forEach((el, j) => el.classList.toggle('active', states[j] === true));
+      });
     });
   });
 
