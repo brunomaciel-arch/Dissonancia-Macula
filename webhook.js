@@ -2,7 +2,7 @@
    DISSONÂNCIA & MÁCULA — webhook.js  (v5 completo)
    ══════════════════════════════════════════════════════ */
 
-import { getActiveAgent, calcBmMax } from './state.js';
+import { getActiveAgent, calcBmMax, CHAR_TYPE_LABELS } from './state.js';
 
 function bar(cur, max, len = 16) {
   if (max <= 0) return '`' + '░'.repeat(len) + '`';
@@ -150,11 +150,11 @@ async function flushStatus() {
   if (!agent?.webhookStatus) { _pending.vida = _pending.bm = _pending.fonte = 0; return; }
 
   const bmMax      = calcBmMax(agent);
-  const fonteTypes = { poder: 'Poder', corrupcao: 'Corrupção', adrenalina: 'Adrenalina' };
+  const typeLabel  = CHAR_TYPE_LABELS[agent.charType];
 
   const vidaStr  = `${clampedBar(agent.vidaCur, agent.vidaMax)}  **${agent.vidaCur} / ${agent.vidaMax}**${agent.vidaCur < 0 ? '  ⚠️ zona crítica' : ''}`;
   const bmStr    = `${bar(agent.bmCur, bmMax)}  **${agent.bmCur} / ${bmMax}**`;
-  const fonteStr = `${bar(agent.fonteCur, 10)}  **${agent.fonteCur} / 10**  ·  ${fonteTypes[agent.fonteType] || agent.fonteType}`;
+  const fonteStr = `${bar(agent.fonteCur, 10)}  **${agent.fonteCur} / 10**${typeLabel ? '  ·  ' + typeLabel : ''}`;
 
   const changes = [];
   if (_pending.vida  !== 0) changes.push(`Vida ${_pending.vida > 0 ? '▲' : '▼'} ${Math.abs(_pending.vida)}`);
