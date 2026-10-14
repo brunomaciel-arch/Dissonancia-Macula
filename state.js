@@ -31,7 +31,7 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     bmCur:   0,
 
     // Fonte
-    fonteCur: 0, fonteType: 'poder',
+    fonteCur: 0,
 
     // Tipo do personagem: Ordem | Adrenalina | Ruína
     charType: '',
@@ -153,14 +153,43 @@ function mergeWithDefaults(agent) {
   // webhook defaults
   if (merged.webhookRolagens === undefined) merged.webhookRolagens = '';
   if (merged.webhookStatus   === undefined) merged.webhookStatus   = '';
-  // tipo do personagem
-  if (merged.charType === undefined) merged.charType = '';
+  // tipo do personagem (substitui o antigo seletor de tipo da Fonte)
+  if (merged.charType === undefined || merged.charType === '') {
+    merged.charType = agent.fonteType === 'adrenalina' ? 'adrenalina' : '';
+  }
+  delete merged.fonteType;
   // condições ativas
   if (merged.activeConditions === undefined) merged.activeConditions = '';
   // arma de iniciativa
   if (merged.initiativeWeaponId === undefined) merged.initiativeWeaponId = '';
   return merged;
 }
+
+/** Formas disponíveis para Forma Primária e Forma Secundária. */
+export const FORMAS = [
+  'Vanguarda Operacional',
+  'Purificador Clínico',
+  'Batedor de Perímetro',
+  'Sapeador Industrial',
+  'Oficial de Comando',
+  'Espectro Operacional',
+  'Engenheiro de Sistemas',
+];
+
+/**
+ * Opções do seletor de Forma. Se a ficha tiver um valor antigo (texto livre)
+ * fora da lista, ele é mantido como opção extra para não sumir silenciosamente.
+ */
+export function getFormaOptions(current) {
+  const opts = [{ value: '', label: '— Selecione —' }, ...FORMAS.map(f => ({ value: f, label: f }))];
+  if (current && !FORMAS.includes(current)) {
+    opts.push({ value: current, label: `${current} (antigo)` });
+  }
+  return opts;
+}
+
+/** Rótulos legíveis do Tipo do personagem. */
+export const CHAR_TYPE_LABELS = { ordem: 'Ordem', adrenalina: 'Adrenalina', ruina: 'Ruína' };
 
 /* ── CÁLCULOS ── */
 export function calcBmMax(agent) {
@@ -277,16 +306,25 @@ export function setVidaCur(value) {
   saveAgent(_active);
 }
 
-export function toggleActionSource(index) {
+/**
+ * Preenchimento em sequência: clicar numa caixa preenche ela e todas as anteriores.
+ * Clicar numa caixa já preenchida esvazia ela e todas as seguintes.
+ */
+function pressSequential(arr, index) {
+  const newCount = arr[index] ? index : index + 1;
+  for (let i = 0; i < arr.length; i++) arr[i] = i < newCount;
+}
+
+export function pressActionSource(index) {
   if (!_active) return;
-  _active.actionSources[index] = !_active.actionSources[index];
+  pressSequential(_active.actionSources, index);
   saveAgent(_active);
 }
 
-export function toggleSalvaguarda(track, index) {
+export function pressSalvaguarda(track, index) {
   if (!_active) return;
   const key = track === 'vida' ? 'salvaguardaVida' : 'salvaguardaMorte';
-  _active[key][index] = !_active[key][index];
+  pressSequential(_active[key], index);
   saveAgent(_active);
 }
 
@@ -461,7 +499,6 @@ export function exportAgentTxt(id) {
   };
 
   const bmMax        = (agent.attrs.raz + agent.attrs.ins) * 5;
-  const fonteTypes   = { poder: 'Poder', corrupcao: 'Corrupção', adrenalina: 'Adrenalina' };
   const abilityTypes = { ordem: 'Ordem', ruina: 'Ruína', adrenalina: 'Adrenalina' };
 
   const lines = [];
@@ -475,7 +512,7 @@ export function exportAgentTxt(id) {
     '',
     `  NOME ......... ${agent.name || '—'}`,
     `  TÍTULO ....... ${agent.title || '—'}`,
-    `  TIPO ......... ${agent.charType || '—'}`,
+    `  TIPO ......... ${CHAR_TYPE_LABELS[agent.charType] || '—'}`,
     `  FORMA 1ª ...... ${agent.formaPrimaria || '—'}`,
     `  FORMA 2ª ...... ${agent.formaSecundaria || '—'}`,
     `  IDADE ........ ${agent.age || '—'}`,
@@ -486,7 +523,7 @@ export function exportAgentTxt(id) {
     line('─'),
     `  Vida         ${bar(agent.vidaCur, agent.vidaMax)}`,
     `  Barreira Mg  ${bar(agent.bmCur, bmMax)}`,
-    `  Fonte        ${bar(agent.fonteCur, 10)}  (${fonteTypes[agent.fonteType] || agent.fonteType})`,
+    `  Fonte        ${bar(agent.fonteCur, 10)}`,
     '',
     line('─'),
     '  ATRIBUTOS',
