@@ -691,20 +691,6 @@ body {
   background: var(--magenta-glow);
 }
 
-.fonte-type-select {
-  background: var(--bg-input);
-  border: 1px solid var(--border-mid);
-  color: var(--magenta);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  letter-spacing: 0.04em;
-}
-.fonte-type-select:focus { outline: none; border-color: var(--magenta); }
-.fonte-type-select option { background: var(--bg-panel); color: var(--text-bright); }
-
 /* Hex pips (Fontes de Ação) */
 .hex-group {
   display: flex;
@@ -3993,4 +3979,40 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   .initiative-weapon-select { max-width: 100%; }
   .vehicle-fields-row { gap: 12px; }
   .vehicle-field--crit { min-width: unset; width: 100%; }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   PERÍCIAS — todos os grupos em largura total
+   Iniciativa e Arsenal-Dano no topo; cada grupo de atributo
+   ocupa a linha inteira, com as perícias em colunas internas.
+   ══════════════════════════════════════════════════════ */
+.skills-layout { grid-template-columns: 1fr; }
+
+.skill-group[data-attr-group] {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.skill-group[data-attr-group] > .skill-group__header {
+  grid-column: 1 / -1;
+}
+/* Separador por sombra: a última linha é cortada pelo overflow do grupo,
+   então não sobra linha dupla colada na borda inferior */
+.skill-group[data-attr-group] > .skill-row {
+  border-bottom: none;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+/* ══════════════════════════════════════════════════════
+   SELETORES DE FORMA (Primária / Secundária)
+   ══════════════════════════════════════════════════════ */
+select.field-select {
+  cursor: pointer;
+  color-scheme: dark;
+  text-overflow: ellipsis;
+}
+select.field-select option {
+  background: var(--bg-panel);
+  color: var(--text-bright);
 }
