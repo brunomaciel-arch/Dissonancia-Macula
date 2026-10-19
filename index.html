@@ -27,6 +27,7 @@
       <span class="brand-sub">&amp; MÁCULA // CENTRAL DE PERSONAGENS</span>
     </div>
     <div class="roster-header__actions">
+      <button id="btn-master" class="btn btn--ghost" title="Acompanhar as fichas dos jogadores">♛ Modo Mestre</button>
       <button id="btn-import" class="btn btn--ghost">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Importar
@@ -60,6 +61,7 @@
     </div>
     <div class="sheet-header__actions">
       <button id="btn-config" class="btn btn--ghost btn--sm">⚙ Configurações</button>
+      <button id="btn-campaign" class="btn btn--ghost btn--sm">⚑ Campanha</button>
       <button id="btn-export" class="btn btn--ghost btn--sm">Exportar</button>
       <button id="btn-delete-agent" class="btn btn--danger btn--sm">Deletar</button>
     </div>
@@ -710,6 +712,51 @@
 
 </div><!-- /#view-sheet -->
 
+<!-- ═══════════════ TELA DE MESTRE ═══════════════ -->
+<div id="view-master" class="view">
+  <header class="master-header">
+    <button id="master-btn-back" class="btn btn--ghost btn--icon" title="Voltar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="master-header__title">
+      <span class="master-header__name">MODO MESTRE</span>
+      <span class="master-header__sub" id="master-user">sem login</span>
+    </div>
+    <div class="master-header__actions">
+      <button id="master-btn-login" class="btn btn--primary btn--sm">Entrar com Google</button>
+      <button id="master-btn-logout" class="btn btn--ghost btn--sm" hidden>Sair</button>
+    </div>
+  </header>
+
+  <main class="master-body">
+    <div class="master-notice" id="master-notice" hidden></div>
+
+    <section class="panel-card" id="master-campaigns-panel" hidden>
+      <div class="panel-card__header">
+        <h2 class="panel-card__title">Campanhas</h2>
+        <div class="master-new">
+          <input class="field-input" id="master-new-name" type="text" maxlength="60" placeholder="Nome da nova campanha..." />
+          <button class="btn btn--primary btn--sm" id="master-btn-create">Gerar código</button>
+        </div>
+      </div>
+      <div class="master-campaign-list" id="master-campaign-list"></div>
+    </section>
+
+    <section class="panel-card" id="master-players-panel" hidden>
+      <div class="panel-card__header">
+        <div>
+          <h2 class="panel-card__title" id="master-camp-title">—</h2>
+          <p class="master-code-line">Código para os jogadores:
+            <strong id="master-camp-code">—</strong>
+            <button class="btn btn--ghost btn--sm" id="master-btn-copy">Copiar</button>
+          </p>
+        </div>
+      </div>
+      <div class="master-player-grid" id="master-player-grid"></div>
+    </section>
+  </main>
+</div>
+
 <!-- ══ MODAIS ══ -->
 <div class="modal-backdrop" id="modal-new-agent" hidden>
   <div class="modal">
@@ -732,6 +779,68 @@
     <div class="modal__footer">
       <button class="btn btn--ghost" id="modal-cancel-delete">Cancelar</button>
       <button class="btn btn--danger" id="modal-confirm-delete-btn">Deletar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CAMPANHA (jogador) ══ -->
+<div class="modal-backdrop" id="modal-campaign" hidden>
+  <div class="modal modal--config">
+    <div class="modal__header">
+      <h2 class="modal__title">⚑ Campanha</h2>
+      <button class="modal__close" id="modal-close-campaign">✕</button>
+    </div>
+    <div class="modal__body">
+      <div class="config-section">
+        <p class="config-section__title">Código da campanha</p>
+        <p class="config-section__desc">Peça o código ao mestre. Ao conectar, ele passa a ver esta ficha e a mantém atualizada. Não são compartilhados: Logbook, histórico de rolagens, webhooks do Discord e a foto original (só uma miniatura).</p>
+        <div class="config-webhook-row">
+          <input class="field-input" id="campaign-code-input" type="text" maxlength="9" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" />
+          <button class="btn btn--primary btn--sm" id="campaign-btn-connect">Conectar</button>
+          <button class="btn btn--danger btn--sm" id="campaign-btn-disconnect" hidden>Desconectar</button>
+        </div>
+        <p class="config-feedback" id="campaign-feedback"></p>
+      </div>
+      <div class="config-section">
+        <p class="config-section__title">Conta</p>
+        <p class="config-section__desc" id="campaign-account">—</p>
+        <p class="config-section__desc">Entrar com Google é opcional, mas mantém o vínculo da ficha se você trocar de aparelho ou limpar o navegador.</p>
+        <button class="btn btn--ghost btn--sm" id="campaign-btn-google">Entrar com Google</button>
+      </div>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn--ghost" id="modal-cancel-campaign">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: DETALHE DA FICHA (mestre, somente leitura) ══ -->
+<div class="modal-backdrop" id="modal-master-detail" hidden>
+  <div class="modal modal--wide">
+    <div class="modal__header">
+      <h2 class="modal__title">Ficha do jogador <small class="md-readonly">somente leitura</small></h2>
+      <button class="modal__close" id="master-detail-close">✕</button>
+    </div>
+    <div class="modal__body md-body" id="master-detail-body"></div>
+    <div class="modal__footer md-footer">
+      <button class="btn btn--primary btn--sm" id="master-grant-item">+ Equipamento</button>
+      <button class="btn btn--primary btn--sm" id="master-grant-consumable">+ Consumível</button>
+      <button class="btn btn--primary btn--sm" id="master-grant-ability">+ Habilidade</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONCEDER (mestre) ══ -->
+<div class="modal-backdrop" id="modal-grant" hidden>
+  <div class="modal">
+    <div class="modal__header">
+      <h2 class="modal__title" id="grant-title">Conceder</h2>
+      <button class="modal__close" id="grant-btn-close">✕</button>
+    </div>
+    <div class="modal__body" id="grant-form"></div>
+    <div class="modal__footer">
+      <button class="btn btn--ghost" id="grant-btn-cancel">Cancelar</button>
+      <button class="btn btn--primary" id="grant-btn-send">Enviar ao jogador</button>
     </div>
   </div>
 </div>
