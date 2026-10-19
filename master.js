@@ -245,12 +245,9 @@ function renderDetail() {
 
   const a = safeSheet(ch.sheet);
   const bmMax = calcBmMax(a);
-  const chips = [
-    CHAR_TYPE_LABELS[a.charType] && `Tipo: ${CHAR_TYPE_LABELS[a.charType]}`,
-    a.formaPrimaria && `1ª Forma: ${a.formaPrimaria}`,
-    a.formaSecundaria && `2ª Forma: ${a.formaSecundaria}`,
-    a.age && `Idade: ${a.age}`,
-  ].filter(Boolean).map(t => `<span class="md-chip">${esc(t)}</span>`).join('');
+  const show    = v => (v === undefined || v === null || String(v).trim() === '' ? '—' : esc(v));
+  // Idade e Nascimento são numéricos na ficha: campo vazio é salvo como 0
+  const showNum = v => (num(v) > 0 ? esc(v) : '—');
 
   const attrs = [['RAZ', 'raz'], ['INS', 'ins'], ['PRE', 'pre'], ['PRS', 'prs'], ['FIS', 'fis']]
     .map(([l, k]) => `<div class="attr-mini"><span class="attr-mini__label">${l}</span><span class="attr-mini__val">${a.attrs[k]}</span></div>`).join('');
@@ -278,10 +275,22 @@ function renderDetail() {
 
   body.innerHTML = `
     <div class="md-head">
-      <div><h3 class="md-name">${esc(ch.name || 'Sem nome')}</h3><p class="md-title">${esc(ch.title || '')}</p></div>
+      <h3 class="md-name">${esc(ch.name || 'Sem nome')}</h3>
       <span class="md-time">atualizado ${esc(timeAgo(ch.updatedAt))}</span>
     </div>
-    <div class="md-chips">${chips}</div>
+
+    <h4 class="md-h">Identidade</h4>
+    <div class="md-grid">
+      <div class="md-stat"><span>Título / Codinome</span><strong>${show(a.title ?? ch.title)}</strong></div>
+      <div class="md-stat"><span>Forma Primária</span><strong>${show(a.formaPrimaria)}</strong></div>
+      <div class="md-stat"><span>Forma Secundária</span><strong>${show(a.formaSecundaria)}</strong></div>
+      <div class="md-stat"><span>Idade</span><strong>${showNum(a.age)}</strong></div>
+      <div class="md-stat"><span>Nascimento (Ano)</span><strong>${showNum(a.birthdate)}</strong></div>
+      <div class="md-stat"><span>Tipo</span><strong>${show(CHAR_TYPE_LABELS[a.charType])}</strong></div>
+    </div>
+
+    <h4 class="md-h">História do Personagem</h4>
+    <div class="md-history${a.history ? '' : ' empty'}">${a.history ? esc(a.history) : 'Nenhuma história registrada.'}</div>
 
     <h4 class="md-h">Status</h4>
     <div class="md-grid">
