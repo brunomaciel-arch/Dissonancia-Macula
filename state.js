@@ -46,6 +46,10 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     // Condições Ativas (texto livre)
     activeConditions: '',
 
+    // Campanha: código compartilhado com o mestre e concessões já aplicadas
+    campaignCode: '',
+    appliedGrantIds: [],
+
     // Aba 1 — Desenvolvimento
     devAprendizado:     0,   // 0–5
     devDesenvolvimento: 0,   // 0–30
@@ -160,6 +164,9 @@ function mergeWithDefaults(agent) {
   delete merged.fonteType;
   // condições ativas
   if (merged.activeConditions === undefined) merged.activeConditions = '';
+  // campanha
+  if (typeof merged.campaignCode !== 'string') merged.campaignCode = '';
+  merged.appliedGrantIds = Array.isArray(agent.appliedGrantIds) ? agent.appliedGrantIds : [];
   // arma de iniciativa
   if (merged.initiativeWeaponId === undefined) merged.initiativeWeaponId = '';
   return merged;
@@ -256,12 +263,20 @@ export function getAgent(id) {
   return loadAllAgents().find(a => a.id === id) ?? null;
 }
 
+/** Ouvinte chamado após cada salvamento bem-sucedido (usado pela sincronização de campanha). */
+let _saveListener = null;
+export function setSaveListener(fn) { _saveListener = fn; }
+
 export function saveAgent(updated) {
   const agents = loadAllAgents();
   const i = agents.findIndex(a => a.id === updated.id);
   if (i === -1) return false;
   agents[i] = { ...updated, updatedAt: Date.now() };
-  return saveAllAgents(agents);
+  const ok = saveAllAgents(agents);
+  if (ok && _saveListener) {
+    try { _saveListener(agents[i]); } catch (e) { console.warn('[State] save listener:', e); }
+  }
+  return ok;
 }
 
 export function deleteAgent(id) {
@@ -451,6 +466,65 @@ export function removeAbility(id) {
   if (!_active) return;
   _active.abilities = _active.abilities.filter(x => x.id !== id);
   saveAgent(_active);
+}
+
+/* ── CONCESSÕES DO MESTRE ── */
+const _str = (v, n = 500) => String(v ?? '').slice(0, n);
+const _int = (v, fallback) => { const n = parseInt(v, 10); return isNaN(n) ? fallback : Math.max(0, n); };
+function _weight(v) {
+  const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
+  return isNaN(n) ? '+0' : (n >= 0 ? `+${n}` : `${n}`);
+}
+
+/**
+ * Valida e limpa uma concessão recebida do mestre. Nunca confia no conteúdo:
+ * só tipos conhecidos, só campos conhecidos, textos com tamanho limitado.
+ * Retorna null se o tipo for desconhecido.
+ */
+export function sanitizeGrant(kind, p = {}) {
+  p = (p && typeof p === 'object') ? p : {};
+  if (kind === 'equipment') {
+    return { kind, item: {
+      name: _str(p.name, 80), description: _str(p.description, 500),
+      market: _str(p.market, 40), damage: _str(p.damage, 60), range: _str(p.range, 60),
+      price: _str(p.price, 40), qty: _int(p.qty, 1), weaponWeight: _weight(p.weaponWeight),
+    }};
+  }
+  if (kind === 'consumable') {
+    const fn = ['sobrevivencia', 'ofensiva', 'utilidade'].includes(p.function) ? p.function : 'sobrevivencia';
+    return { kind, item: { name: _str(p.name, 80), function: fn, description: _str(p.description, 500), qty: _int(p.qty, 1) }};
+  }
+  if (kind === 'ability') {
+    const type = ['ordem', 'ruina', 'adrenalina'].includes(p.type) ? p.type : 'ordem';
+    return { kind, item: { name: _str(p.name, 80), type, description: _str(p.description, 2000), refinement: _str(p.refinement, 2000) }};
+  }
+  return null;
+}
+
+/**
+ * Aplica uma concessão do mestre à ficha ativa. Idempotente: o mesmo grantId
+ * nunca é aplicado duas vezes. Retorna { ok, label, kind } | { duplicate } | null.
+ */
+export function applyGrantToActive(grantId, kind, payload) {
+  if (!_active || !grantId) return null;
+  if (_active.appliedGrantIds.includes(grantId)) return { duplicate: true };
+  const clean = sanitizeGrant(kind, payload);
+  if (!clean) return null;
+
+  let label;
+  if (clean.kind === 'equipment') {
+    _active.equipment.push({ ...createEquipmentItem(), ...clean.item });
+    label = clean.item.name || 'Equipamento';
+  } else if (clean.kind === 'consumable') {
+    _active.consumables.push({ ...createConsumable(), ...clean.item });
+    label = clean.item.name || 'Consumível';
+  } else {
+    _active.abilities.push({ ...createAbility(), ...clean.item });
+    label = clean.item.name || 'Habilidade';
+  }
+  _active.appliedGrantIds = [..._active.appliedGrantIds, grantId].slice(-200);
+  saveAgent(_active);
+  return { ok: true, label, kind: clean.kind };
 }
 
 /* ── NOTES ── */
