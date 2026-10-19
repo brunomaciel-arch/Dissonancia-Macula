@@ -5,6 +5,12 @@
 import { sendStatus, sendTest } from './webhook.js';
 import { rollWeapon, rollInitiative } from './dice.js';
 import {
+  initCampaign, attachCampaign, detachCampaign, connectCampaign, disconnectCampaign,
+  releaseCampaign, signInWithGoogle, getAccountLabel, onCampaignStatus, getCampaignStatus,
+  cloudReady, formatCode, normalizeCode,
+} from './campaign.js';
+import { initMaster, openMaster } from './master.js';
+import {
   loadAllAgents, createAgent, deleteAgent,
   openAgent, getActiveAgent, setField,
   setAttr, stepAttr, setBmCur, setVidaCur,
@@ -121,9 +127,20 @@ export function openSheet(id) {
   activateTab(0);
   showView('sheet');
   window.scrollTo({ top: 0, behavior: 'instant' });
+  attachCampaign(agent); // sincroniza e passa a receber concessões do mestre (se vinculada)
 }
 
-export function closeSheet() { showView('roster'); renderRoster(); }
+export function closeSheet() { detachCampaign(); showView('roster'); renderRoster(); }
+
+/** Re-renderiza o que uma concessão do mestre pode ter alterado. */
+function refreshAfterGrant() {
+  const agent = getActiveAgent();
+  if (!agent) return;
+  populateTab3(agent);
+  populateTab4(agent);
+  renderWeapons(agent);
+  populateInitiativeWeaponSelect(agent);
+}
 export function activateTab(i) {
   $$('.tab').forEach(t   => t.classList.toggle('active',   Number(t.dataset.tab)   === i));
   $$('.tab-panel').forEach(p => p.classList.toggle('active', Number(p.dataset.panel) === i));
@@ -949,6 +966,8 @@ export function hideDeleteModal()         { _pendingDeleteId=null; $('#modal-con
 export function confirmDelete() {
   if (!_pendingDeleteId) return;
   const onSheet = getActiveAgent()?.id === _pendingDeleteId;
+  const target = loadAllAgents().find(a => a.id === _pendingDeleteId);
+  if (target) releaseCampaign(target); // melhor esforço, não bloqueia a exclusão
   deleteAgent(_pendingDeleteId);
   hideDeleteModal();
   showToast('Personagem deletado.','success');
@@ -995,6 +1014,8 @@ export function bindSheetEvents() {
   $('#btn-back').addEventListener('click', closeSheet);
   $('#btn-config').addEventListener('click', showConfigModal);
   bindConfigModal();
+  $('#btn-campaign').addEventListener('click', showCampaignModal);
+  bindCampaignModal();
   $('#btn-export').addEventListener('click', showExportModal);
   $('#btn-delete-agent').addEventListener('click', () => { const a=getActiveAgent(); if(a) showDeleteModal(a.id,a.name); });
 
@@ -1240,6 +1261,14 @@ export function bindSheetEvents() {
    BINDINGS — ROSTER
 ════════════════════════════════════ */
 export function bindRosterEvents() {
+  initCampaign({ toast: showToast, onGrantApplied: refreshAfterGrant });
+  initMaster({
+    toast: showToast,
+    showView,
+    onExit: () => { showView('roster'); renderRoster(); },
+  });
+  $('#btn-master').addEventListener('click', openMaster);
+
   $('#btn-new-agent').addEventListener('click', showNewAgentModal);
   $('#modal-close-new').addEventListener('click', hideNewAgentModal);
   $('#modal-cancel-new').addEventListener('click', hideNewAgentModal);
@@ -1299,6 +1328,86 @@ function markActiveTheme() {
   const current = getTheme();
   $$('.theme-option').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === current);
+  });
+}
+
+/* ════════════════════════════════════
+   MODAL DE CAMPANHA (jogador)
+════════════════════════════════════ */
+function setCampaignFeedback(text, kind = '') {
+  const el = $('#campaign-feedback');
+  el.textContent = text || '';
+  el.className = `config-feedback${kind ? ` ${kind}` : ''}`;
+}
+
+function renderCampaignStatus() {
+  const agent = getActiveAgent();
+  if (!agent || !agent.campaignCode) { setCampaignFeedback(''); return; }
+  const st = getCampaignStatus();
+  const hhmm = new Date(st.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (st.state === 'syncing') setCampaignFeedback('Sincronizando...', 'loading');
+  else if (st.state === 'ok') setCampaignFeedback(`✓ ${st.message} às ${hhmm}`, 'ok');
+  else if (st.state === 'error') setCampaignFeedback(`✗ ${st.message}`, 'error');
+  else setCampaignFeedback('Conectada.', 'ok');
+}
+
+function renderCampaignModal() {
+  const agent = getActiveAgent();
+  const linked = !!agent?.campaignCode;
+  $('#campaign-btn-disconnect').hidden = !linked;
+  $('#campaign-btn-connect').textContent = linked ? 'Trocar código' : 'Conectar';
+  renderCampaignStatus();
+}
+
+function showCampaignModal() {
+  const agent = getActiveAgent();
+  if (!agent) return;
+  $('#campaign-code-input').value = formatCode(agent.campaignCode);
+  renderCampaignModal();
+  $('#campaign-account').textContent = cloudReady() ? 'Verificando...' : 'O Firebase ainda não foi configurado neste site (veja o README).';
+  if (!cloudReady()) setCampaignFeedback('Recurso indisponível até o Firebase ser configurado.', 'error');
+  $('#modal-campaign').hidden = false;
+  getAccountLabel().then(t => { if (t) $('#campaign-account').textContent = `Conectado como: ${t}`; });
+}
+
+function hideCampaignModal() { $('#modal-campaign').hidden = true; }
+
+function bindCampaignModal() {
+  $('#modal-close-campaign').addEventListener('click', hideCampaignModal);
+  $('#modal-cancel-campaign').addEventListener('click', hideCampaignModal);
+  $('#modal-campaign').addEventListener('click', e => { if (e.target === e.currentTarget) hideCampaignModal(); });
+  onCampaignStatus(() => { if (!$('#modal-campaign').hidden) renderCampaignStatus(); });
+
+  // Formata enquanto digita: XXXX-XXXX
+  $('#campaign-code-input').addEventListener('input', e => {
+    const n = normalizeCode(e.target.value).slice(0, 8);
+    e.target.value = n.length > 4 ? `${n.slice(0, 4)}-${n.slice(4)}` : n;
+  });
+  $('#campaign-code-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#campaign-btn-connect').click(); });
+
+  $('#campaign-btn-connect').addEventListener('click', async () => {
+    setCampaignFeedback('Conectando...', 'loading');
+    const r = await connectCampaign($('#campaign-code-input').value);
+    if (!r.ok) { setCampaignFeedback(r.error, 'error'); return; }
+    showToast(r.campaignName ? `Conectado à campanha "${r.campaignName}"!` : 'Conectado à campanha!', 'success');
+    renderCampaignModal();
+  });
+
+  $('#campaign-btn-disconnect').addEventListener('click', async () => {
+    if (!confirm('Desconectar desta campanha? O mestre deixará de ver esta ficha.')) return;
+    const r = await disconnectCampaign();
+    $('#campaign-code-input').value = '';
+    showToast(r.warning || 'Desconectado da campanha.', r.warning ? '' : 'success');
+    renderCampaignModal();
+  });
+
+  $('#campaign-btn-google').addEventListener('click', async () => {
+    if (!cloudReady()) { setCampaignFeedback('Configure o Firebase primeiro.', 'error'); return; }
+    const r = await signInWithGoogle();
+    if (!r.ok) { setCampaignFeedback(r.error, 'error'); return; }
+    $('#campaign-account').textContent = `Conectado como: ${r.email || 'conta Google'}`;
+    const agent = getActiveAgent();
+    if (agent?.campaignCode) attachCampaign(agent);
   });
 }
 
