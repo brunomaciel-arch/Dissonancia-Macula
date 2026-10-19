@@ -4231,3 +4231,20 @@ select.field-select option {
   .master-player-grid { grid-template-columns: 1fr; }
   .modal--wide { max-height: 92vh; }
 }
+
+/* Detalhe do mestre: identidade e história */
+.md-stat strong { word-break: break-word; }
+.md-history {
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-mid);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.md-history.empty { color: var(--text-ghost); font-style: italic; }
