@@ -416,7 +416,7 @@
             <span class="skill-group__val" id="initiative-val">0</span>
           </div>
           <div class="initiative-row">
-            <span class="initiative-formula">2d10 + (INS − Peso da Arma)</span>
+            <span class="initiative-formula" title="O Peso é o modificador da arma: Desarmado +1 · Leve +0 · Médio −1 · Pesado −2">2d10 + INS + Peso da Arma</span>
             <select class="initiative-weapon-select" id="initiative-weapon-select">
               <option value="">Sem arma (+0)</option>
             </select>
@@ -586,7 +586,18 @@
         </div>
         <div class="table-wrapper">
           <table class="equipment-table" id="equipment-table">
-            <thead><tr><th>Nome</th><th>Descrição</th><th>Mercado</th><th>Dano</th><th>Alcance</th><th>Preço</th><th>Qtd</th><th>Peso</th><th></th></tr></thead>
+            <thead><tr>
+              <th class="col-name">Nome</th>
+              <th class="col-desc">Descrição</th>
+              <th class="col-market" title="A — Aberto · R — Restrito · N/M — Negro/Militar">Mercado</th>
+              <th class="col-damage">Dano</th>
+              <th class="col-range">Alcance</th>
+              <th class="col-modules" title="Módulos instalados na arma">Módulos</th>
+              <th class="col-price">Preço</th>
+              <th class="col-qty">Qtd</th>
+              <th class="col-weight" title="Modificador de Iniciativa: Desarmado +1 · Leve +0 · Médio −1 · Pesado −2">Peso</th>
+              <th class="col-remove"></th>
+            </tr></thead>
             <tbody id="equipment-body"></tbody>
           </table>
         </div>
