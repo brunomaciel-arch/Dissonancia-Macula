@@ -77,7 +77,7 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
 }
 
 function createEquipmentItem() {
-  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0' };
+  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', modules: '' };
 }
 
 function createVehicleItem() {
@@ -114,7 +114,13 @@ function mergeWithDefaults(agent) {
   merged.attrs   = { ...defaults.attrs, ...(agent.attrs || {}) };
   merged.actionSources = Array.isArray(agent.actionSources) ? agent.actionSources : defaults.actionSources;
   merged.equipment  = Array.isArray(agent.equipment)
-    ? agent.equipment.map(e => ({ weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', ...e }))
+    ? agent.equipment.map(e => {
+        const item = { weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', modules: '', ...e };
+        item.weaponWeight = normalizeWeaponWeight(item.weaponWeight);
+        // Mercado: variações conhecidas ("a", "Aberto"…) viram o código; texto desconhecido é preservado
+        item.market = normalizeMarket(item.market) || String(item.market ?? '');
+        return item;
+      })
     : [];
   // Veículos: migra formato antigo (type/maneuver texto/criticalInjuries texto) para o novo
   merged.vehicles = Array.isArray(agent.vehicles)
@@ -223,15 +229,52 @@ export function calcSkillMod(agent, formula) {
  */
 export function calcInitiativeMod(agent) {
   const weapon = (agent.equipment || []).find(e => e.id === agent.initiativeWeaponId);
-  const weight = parseWeaponWeight(weapon?.weaponWeight);
-  return agent.attrs.ins - weight;
+  // O Peso é o modificador de Iniciativa da tabela de armas (Desarmado +1, Leve +0,
+  // Médio −1, Pesado −2): já traz o sinal, então é SOMADO. Subtraí-lo inverteria o sinal.
+  return agent.attrs.ins + parseWeaponWeight(weapon?.weaponWeight);
 }
 
-/** Converte string de peso ("+1", "-2", "0") em número. */
+/**
+ * Converte o texto do Peso ("+1", "-2", "0") em número com sinal.
+ * Aceita também os "menos" tipográficos (− – —) que alguns teclados inserem.
+ */
 export function parseWeaponWeight(str) {
-  if (!str) return 0;
-  const n = parseInt(String(str).replace('+', ''), 10);
-  return isNaN(n) ? 0 : n;
+  const clean = String(str ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').trim();
+  const m = clean.match(/^([+-]?)\s*(\d+)/);
+  if (!m) return 0;
+  const n = parseInt(m[2], 10);
+  return m[1] === '-' ? -n : n;
+}
+
+/** Texto padronizado do Peso: "+N" para zero/positivo, "-N" para negativo. */
+export function normalizeWeaponWeight(str) {
+  const n = parseWeaponWeight(str);
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+/* ── Nível de Mercado das armas ── */
+export const MARKET_LEVELS = [
+  { value: 'A',   label: 'A — Aberto' },
+  { value: 'R',   label: 'R — Restrito' },
+  { value: 'N/M', label: 'N/M — Negro/Militar' },
+];
+
+/** Converte variações ("a", "Aberto", "negro/militar"…) no código A | R | N/M. Desconhecido → ''. */
+export function normalizeMarket(v) {
+  const t = String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z/]/g, '');
+  if (!t) return '';
+  if (t === 'a' || t.endsWith('aberto')) return 'A';
+  if (t === 'r' || t.endsWith('restrito')) return 'R';
+  if (['n/m', 'nm', 'n', 'm'].includes(t) || t.includes('negro') || t.includes('militar')) return 'N/M';
+  return '';
+}
+
+/** Opções do seletor de Mercado. Valor antigo não reconhecido é mantido como opção "(antigo)". */
+export function getMarketOptions(current) {
+  const opts = [{ value: '', label: '—' }, ...MARKET_LEVELS];
+  const cur = String(current ?? '');
+  if (cur && !normalizeMarket(cur)) opts.push({ value: cur, label: `${cur} (antigo)` });
+  return opts;
 }
 
 /* ── LOCALSTORAGE ── */
@@ -471,10 +514,6 @@ export function removeAbility(id) {
 /* ── CONCESSÕES DO MESTRE ── */
 const _str = (v, n = 500) => String(v ?? '').slice(0, n);
 const _int = (v, fallback) => { const n = parseInt(v, 10); return isNaN(n) ? fallback : Math.max(0, n); };
-function _weight(v) {
-  const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
-  return isNaN(n) ? '+0' : (n >= 0 ? `+${n}` : `${n}`);
-}
 
 /**
  * Valida e limpa uma concessão recebida do mestre. Nunca confia no conteúdo:
@@ -486,8 +525,9 @@ export function sanitizeGrant(kind, p = {}) {
   if (kind === 'equipment') {
     return { kind, item: {
       name: _str(p.name, 80), description: _str(p.description, 500),
-      market: _str(p.market, 40), damage: _str(p.damage, 60), range: _str(p.range, 60),
-      price: _str(p.price, 40), qty: _int(p.qty, 1), weaponWeight: _weight(p.weaponWeight),
+      market: normalizeMarket(p.market), damage: _str(p.damage, 60), range: _str(p.range, 60),
+      modules: _str(p.modules, 200),
+      price: _str(p.price, 40), qty: _int(p.qty, 1), weaponWeight: normalizeWeaponWeight(p.weaponWeight),
     }};
   }
   if (kind === 'consumable') {
@@ -629,6 +669,10 @@ export function exportAgentTxt(id) {
     agent.equipment.forEach(e => {
       const row = [e.name,e.description,e.market,e.damage,e.range,e.price,e.qty];
       L('  ' + row.map((v,i) => String(v??'').slice(0,colW[i]).padEnd(colW[i])).join(' '));
+      const extras = [];
+      if (e.damage || (e.weaponWeight && e.weaponWeight !== '+0')) extras.push(`Peso: ${e.weaponWeight || '+0'}`);
+      if (e.modules) extras.push(`Módulos: ${e.modules}`);
+      if (extras.length) L('    ' + extras.join('  ·  '));
     });
   }
 
