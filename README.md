@@ -67,7 +67,7 @@ A aba abre com os blocos de **Iniciativa** e **Arsenal — Dano** no topo, segui
 - Precisão: Prestidigitação
 - Presença: Furtividade, Engano, Presença
 - Híbridos (média de dois atributos): Redirecionamento, Medicina, Confecção e Reparo, Resistência Mental, Concentração, Agilidade, Pilotagem, Investigação, Negociação
-**Iniciativa** — calculada como 2d10 + (Instinto − Peso da Arma). Um seletor permite escolher qual arma do Arsenal está em uso; sem arma selecionada, assume-se peso +0. Rola e envia ao Discord como as demais perícias.
+**Iniciativa** — calculada como 2d10 + Instinto + Peso da Arma. O Peso é o modificador de Iniciativa da arma, com sinal: Desarmado +1, Leve +0, Médio −1, Pesado −2. Um seletor permite escolher qual arma do Arsenal está em uso; sem arma selecionada, assume-se +0. Rola e envia ao Discord como as demais perícias.
  
 **Arsenal (rolagem de dano)** — todo item do Arsenal que tiver uma expressão de dano válida (ex: `2d6+3`) aparece automaticamente nesta aba como uma linha clicável, com seletor de atributo base e campo de bônus extra, permitindo rolar o dano do item diretamente.
  
@@ -84,7 +84,7 @@ Recursos, equipamentos, veículos e consumíveis do personagem.
  
 - **RD (Traje)** — presets rápidos: Comum (RD 0), Desenvolvido (RD 4) e Avançado (RD 8). Valor também editável manualmente
 - **Créditos Universais** — contador numérico livre
-- **Equipamentos** — tabela com Nome, Descrição, Mercado, Dano, Alcance, Preço, Quantidade e **Peso da Arma** (usado no cálculo de Iniciativa, formato `+N`/`−N`/`0`). Cada linha é editável diretamente; itens com dano válido alimentam automaticamente o painel de rolagem de arsenal na Aba Perícias
+- **Equipamentos** — tabela com Nome, Descrição, **Mercado** (lista: A — Aberto, R — Restrito, N/M — Negro/Militar), Dano, Alcance, **Módulos** (texto livre, ex.: "Acuidade, Alcance"), Preço, Quantidade e **Peso** (modificador de Iniciativa, formato `+N`/`-N`/`0`). Cada linha é editável diretamente; itens com dano válido alimentam automaticamente o painel de rolagem de arsenal na Aba Perícias
 - **Veículos** — cards com Nome/Modelo/Mercado, categoria (Leve, Médio, Pesado, Aéreo), Casco (atual/máximo), Blindagem (RD), Manobra, 3 hexágonos de Lesões Críticas e Propriedades
 - **Consumíveis** — tabela com Nome, Função (Sobrevivência, Ofensiva ou Utilidade), Descrição e Quantidade ajustável por botões +/−
 ---
@@ -157,10 +157,10 @@ O que o mestre vê: toda a ficha, **exceto** Logbook, histórico de rolagens, we
 **Mestre — botão ♛ Modo Mestre (na central de personagens):**
 1. Entre com sua conta Google.
 2. Dê um nome à campanha e clique em **Gerar código**. Entregue o código aos jogadores.
-3. Os cards dos jogadores aparecem e atualizam sozinhos. Clique num card para ver a ficha completa em **somente leitura** (atributos, status, perícias calculadas, arsenal, habilidades).
+3. Os cards dos jogadores aparecem e atualizam sozinhos. Clique num card para ver a ficha completa em **somente leitura** (identidade com título, formas, idade e nascimento, história, atributos, status, perícias calculadas, arsenal e habilidades).
 4. Use **+ Equipamento**, **+ Consumível** ou **+ Habilidade** para conceder algo ao jogador.
 O mestre **nunca altera a ficha do jogador**. A concessão vai para uma caixa de entrada; quando o jogador abre a ficha, o app a incorpora e avisa. Se o jogador estiver offline, recebe na próxima vez que abrir a ficha.
-
+ 
 ---
  
 ## Persistência de Dados
