@@ -4248,3 +4248,27 @@ select.field-select option {
   overflow-y: auto;
 }
 .md-history.empty { color: var(--text-ghost); font-style: italic; }
+
+
+/* ══════════════════════════════════════════════════════
+   TABELA DE EQUIPAMENTOS — colunas com largura mínima
+   O espaço extra é dividido entre as colunas e os campos
+   preenchem toda a célula (antes, o Alcance era cortado).
+   ══════════════════════════════════════════════════════ */
+#equipment-table { min-width: 1170px; }
+#equipment-table th.col-name    { min-width: 150px; }
+#equipment-table th.col-desc    { min-width: 190px; }
+#equipment-table th.col-market  { min-width: 170px; }
+#equipment-table th.col-damage  { min-width: 90px; }
+#equipment-table th.col-range   { min-width: 120px; }
+#equipment-table th.col-modules { min-width: 180px; }
+#equipment-table th.col-price   { min-width: 80px; }
+#equipment-table th.col-qty     { min-width: 64px; }
+#equipment-table th.col-weight  { min-width: 76px; }
+#equipment-table th.col-remove  { min-width: 52px; }
+
+#equipment-table .eq-input { max-width: none; width: 100%; text-overflow: ellipsis; }
+
+/* Mercado: lista fechada */
+.eq-select { cursor: pointer; color-scheme: dark; }
+.eq-select option { background: var(--bg-panel); color: var(--text-bright); }
