@@ -25,7 +25,7 @@ import {
   stepDev, setPhotoOffset,
   clearRollHistory,
   getTheme, setTheme,
-  getFormaOptions,
+  getFormaOptions, getMarketOptions, normalizeWeaponWeight,
 } from './state.js';
 
 const $ = (s, c = document) => c.querySelector(s);
@@ -502,39 +502,56 @@ export function renderEquipmentTable(agent) {
 function buildEquipmentRow(item) {
   const tr = document.createElement('tr');
   tr.dataset.equipId = item.id;
+
   [
-    { key:'name',        cls:'',     ph:'Nome...' },
-    { key:'description', cls:'',     ph:'Descrição...' },
-    { key:'market',      cls:'--sm', ph:'—' },
-    { key:'damage',      cls:'--sm', ph:'—' },
-    { key:'range',       cls:'--sm', ph:'—' },
-    { key:'price',       cls:'--sm', ph:'—' },
-    { key:'qty',         cls:'--xs', ph:'1', type:'number' },
-    { key:'weaponWeight',cls:'--xs', ph:'+0' },
+    { key: 'name',         ph: 'Nome...' },
+    { key: 'description',  ph: 'Descrição...' },
+    { key: 'market',       kind: 'market' },
+    { key: 'damage',       ph: 'Ex.: 1d8' },
+    { key: 'range',        ph: 'Ex.: Adjacente' },
+    { key: 'modules',      ph: 'Ex.: Acuidade, Alcance' },
+    { key: 'price',        ph: '—' },
+    { key: 'qty',          ph: '1', type: 'number' },
+    { key: 'weaponWeight', ph: '+0', title: 'Modificador de Iniciativa: Desarmado +1 · Leve +0 · Médio −1 · Pesado −2' },
   ].forEach(f => {
     const td = document.createElement('td');
-    const inp = document.createElement('input');
-    inp.className   = `eq-input eq-input${f.cls}`;
-    inp.type        = f.type || 'text';
-    inp.value       = item[f.key] ?? '';
-    inp.placeholder = f.ph;
-    inp.addEventListener('change', () => {
-      let val = inp.value;
-      // Sanitiza Peso da Arma: apenas números com sinal +/-
+    let el;
+
+    if (f.kind === 'market') {
+      // Nível de Mercado: lista fechada (A — Aberto · R — Restrito · N/M — Negro/Militar)
+      el = document.createElement('select');
+      el.className = 'eq-input eq-select';
+      getMarketOptions(item.market).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        el.appendChild(opt);
+      });
+      el.value = item.market ?? '';
+    } else {
+      el = document.createElement('input');
+      el.className   = 'eq-input';
+      el.type        = f.type || 'text';
+      el.value       = item[f.key] ?? '';
+      el.placeholder = f.ph || '';
+      if (f.title) el.title = f.title;
+    }
+
+    el.addEventListener('change', () => {
+      let val = el.value;
+      // Peso: número com sinal (+1, -2, 0). Aceita o "menos" tipográfico dos teclados.
       if (f.key === 'weaponWeight') {
-        const n = parseInt(val.replace(/[^\d-]/g, ''), 10);
-        val = isNaN(n) ? '+0' : (n >= 0 ? `+${n}` : `${n}`);
-        inp.value = val;
-        populateInitiativeWeaponSelect(getActiveAgent());
+        val = normalizeWeaponWeight(val);
+        el.value = val;
       }
       updateEquipmentField(item.id, f.key, val);
-      // Se o campo dano mudou, reatualizar lista de armas
       if (f.key === 'damage') renderWeapons(getActiveAgent());
-      if (f.key === 'name') populateInitiativeWeaponSelect(getActiveAgent());
+      if (f.key === 'name' || f.key === 'weaponWeight') populateInitiativeWeaponSelect(getActiveAgent());
     });
-    td.appendChild(inp);
+    td.appendChild(el);
     tr.appendChild(td);
   });
+
   const tdBtn = document.createElement('td');
   const btn   = document.createElement('button');
   btn.className = 'btn-remove-row'; btn.textContent = '✕';
