@@ -8,7 +8,7 @@
 
 import { cloud } from './cloud.js';
 import { generateCode, formatCode, explainError, signInWithGoogle } from './campaign.js';
-import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS } from './state.js';
+import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS, MARKET_LEVELS } from './state.js';
 
 const $ = (s, c = document) => c.querySelector(s);
 
@@ -255,8 +255,8 @@ function renderDetail() {
   const skills = SKILLS.map(([n, f]) =>
     `<div class="md-skill"><span>${esc(n)}</span><strong>${calcSkillMod(a, f)}</strong></div>`).join('');
 
-  const equip = a.equipment.length ? `<table class="equipment-table md-table"><thead><tr><th>Nome</th><th>Dano</th><th>Alcance</th><th>Peso</th><th>Qtd</th></tr></thead><tbody>${
-    a.equipment.map(e => `<tr><td>${esc(e.name)}${e.description ? `<br><small>${esc(e.description)}</small>` : ''}</td><td>${esc(e.damage)}</td><td>${esc(e.range)}</td><td>${esc(e.weaponWeight)}</td><td>${esc(e.qty)}</td></tr>`).join('')
+  const equip = a.equipment.length ? `<table class="equipment-table md-table"><thead><tr><th>Nome</th><th>Mercado</th><th>Dano</th><th>Alcance</th><th>Módulos</th><th>Peso</th><th>Qtd</th></tr></thead><tbody>${
+    a.equipment.map(e => `<tr><td>${esc(e.name)}${e.description ? `<br><small>${esc(e.description)}</small>` : ''}</td><td>${esc(e.market)}</td><td>${esc(e.damage)}</td><td>${esc(e.range)}</td><td>${esc(e.modules)}</td><td>${esc(e.weaponWeight)}</td><td>${esc(e.qty)}</td></tr>`).join('')
   }</tbody></table>` : '<p class="table-empty">Sem equipamentos.</p>';
 
   const vehicles = a.vehicles.length ? a.vehicles.map(v => `
@@ -325,9 +325,11 @@ const GRANT_FORMS = {
     title: 'Conceder equipamento',
     fields: [
       ['name', 'Nome', 'text', 80], ['description', 'Descrição', 'textarea', 500],
-      ['market', 'Mercado', 'text', 40], ['damage', 'Dano (ex: 2d6+3)', 'text', 60],
-      ['range', 'Alcance', 'text', 60], ['price', 'Preço', 'text', 40],
-      ['qty', 'Quantidade', 'number', 0, '1'], ['weaponWeight', 'Peso da arma (ex: +1, -2)', 'text', 6, '+0'],
+      ['market', 'Mercado', 'select', 0, '', [['', '—'], ...MARKET_LEVELS.map(m => [m.value, m.label])]],
+      ['damage', 'Dano (ex: 2d6+3)', 'text', 60],
+      ['range', 'Alcance', 'text', 60], ['modules', 'Módulos', 'text', 200],
+      ['price', 'Preço', 'text', 40], ['qty', 'Quantidade', 'number', 0, '1'],
+      ['weaponWeight', 'Peso (modificador de Iniciativa: +1, 0, -1, -2)', 'text', 6, '+0'],
     ],
   },
   consumable: {
