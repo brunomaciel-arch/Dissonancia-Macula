@@ -10,6 +10,7 @@ import {
   cloudReady, formatCode, normalizeCode,
 } from './campaign.js';
 import { initMaster, openMaster } from './master.js';
+import { openForja } from './forja.js';
 import {
   loadAllAgents, createAgent, deleteAgent,
   openAgent, getActiveAgent, setField,
@@ -1225,6 +1226,21 @@ export function bindSheetEvents() {
     populateInitiativeWeaponSelect(getActiveAgent());
   });
 
+  // ── Arsenal: forjar arma (Forja das Armas) ──
+  $('#btn-forja-equipment')?.addEventListener('click', () => openForja({
+    mode: 'player', toast: showToast, useLabel: 'Adicionar ao Arsenal',
+    onUse: it => {
+      const item = addEquipment();
+      if (!item) return;
+      Object.entries(it).forEach(([k, v]) => updateEquipmentField(item.id, k, v));
+      const a = getActiveAgent();
+      renderEquipmentTable(a);
+      renderWeapons(a);
+      populateInitiativeWeaponSelect(a);
+      showToast('Arma adicionada ao Arsenal.', 'success');
+    },
+  }));
+
   // ── Arsenal: adicionar veículo ──
   $('#btn-add-vehicle')?.addEventListener('click', () => {
     addVehicle();
@@ -1285,6 +1301,7 @@ export function bindRosterEvents() {
     onExit: () => { showView('roster'); renderRoster(); },
   });
   $('#btn-master').addEventListener('click', openMaster);
+  $('#btn-forja-home')?.addEventListener('click', () => openForja({ toast: showToast }));
 
   $('#btn-new-agent').addEventListener('click', showNewAgentModal);
   $('#modal-close-new').addEventListener('click', hideNewAgentModal);
