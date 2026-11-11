@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════ */
 
 import { cloud } from './cloud.js';
+import { openForja } from './forja.js';
 import { generateCode, formatCode, explainError, signInWithGoogle } from './campaign.js';
 import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS, MARKET_LEVELS } from './state.js';
 
@@ -366,6 +367,14 @@ function openGrant(kind) {
   $('#modal-grant').hidden = false;
 }
 
+/** Preenche o formulário de concessão de equipamento com uma arma da Forja. */
+function fillGrantFromItem(it) {
+  openGrant('equipment');
+  const set = (k, v) => { const el = document.querySelector(`#grant-form [data-key="${k}"]`); if (el) el.value = v ?? ''; };
+  ['name', 'description', 'market', 'damage', 'range', 'modules', 'price', 'weaponWeight'].forEach(k => set(k, it[k]));
+  set('qty', 1);
+}
+
 async function submitGrant() {
   if (!S.code || !S.detailId) return;
   const payload = {};
@@ -407,6 +416,10 @@ export function initMaster(context) {
   $('#master-detail-close').addEventListener('click', closeDetail);
   $('#modal-master-detail').addEventListener('click', e => { if (e.target === e.currentTarget) closeDetail(); });
   $('#master-grant-item').addEventListener('click', () => openGrant('equipment'));
+  $('#master-grant-forja')?.addEventListener('click', () => openForja({
+    mode: 'master', toast: ctx.toast, useLabel: 'Conceder ao jogador', onUse: fillGrantFromItem,
+  }));
+  $('#master-btn-forja')?.addEventListener('click', () => openForja({ mode: 'master', toast: ctx.toast }));
   $('#master-grant-consumable').addEventListener('click', () => openGrant('consumable'));
   $('#master-grant-ability').addEventListener('click', () => openGrant('ability'));
 
