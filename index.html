@@ -28,6 +28,7 @@
     </div>
     <div class="roster-header__actions">
       <button id="btn-master" class="btn btn--ghost" title="Acompanhar as fichas dos jogadores">♛ Modo Mestre</button>
+      <button id="btn-forja-home" class="btn btn--ghost" title="Montar armas com as regras do Arsenal">⚒ Forja de Armas</button>
       <button id="btn-import" class="btn btn--ghost">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Importar
@@ -582,7 +583,10 @@
       <div class="panel-card">
         <div class="panel-card__header">
           <h2 class="panel-card__title">Equipamentos</h2>
-          <button class="btn btn--primary btn--sm" id="btn-add-equipment">+ Adicionar Item</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn--ghost btn--sm" id="btn-forja-equipment" title="Montar uma arma pelas regras do Arsenal">⚒ Forjar arma</button>
+            <button class="btn btn--primary btn--sm" id="btn-add-equipment">+ Adicionar Item</button>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="equipment-table" id="equipment-table">
@@ -734,6 +738,7 @@
       <span class="master-header__sub" id="master-user">sem login</span>
     </div>
     <div class="master-header__actions">
+      <button id="master-btn-forja" class="btn btn--ghost btn--sm" title="Criar e anotar armas">⚒ Forja de Armas</button>
       <button id="master-btn-login" class="btn btn--primary btn--sm">Entrar com Google</button>
       <button id="master-btn-logout" class="btn btn--ghost btn--sm" hidden>Sair</button>
     </div>
@@ -835,6 +840,7 @@
     <div class="modal__body md-body" id="master-detail-body"></div>
     <div class="modal__footer md-footer">
       <button class="btn btn--primary btn--sm" id="master-grant-item">+ Equipamento</button>
+      <button class="btn btn--primary btn--sm" id="master-grant-forja">⚒ Arma da Forja</button>
       <button class="btn btn--primary btn--sm" id="master-grant-consumable">+ Consumível</button>
       <button class="btn btn--primary btn--sm" id="master-grant-ability">+ Habilidade</button>
     </div>
