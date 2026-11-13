@@ -19,6 +19,7 @@ const CL = {
   peq:  { n: 'Pequena',   d: '1d6', a: 3.5, v: 3, p: 50,  c: 6, w: 'Leve',   wt: 'Leve ou Desarmado', bd: '1d4', h: 'Uma mão' },
   uma:  { n: 'Uma Mão',   d: '1d8', a: 4.5, v: 3, p: 100, c: 6, w: 'Médio',  wt: 'Médio',             bd: '1d6', h: 'Uma mão' },
   duas: { n: 'Duas Mãos', d: '2d6', a: 7,   v: 2, p: 150, c: 4, w: 'Pesado', wt: 'Pesado',            bd: '1d8', h: 'Duas mãos' },
+  esc:  { n: 'Escudo',    d: '1d4', a: 2.5, v: 1, p: 50,  c: 0, w: 'Médio',  wt: 'Médio',             bd: '—',   h: 'Uma mão (escudo)' },
 };
 const PS = { Desarmado: 1, Leve: 0, 'Médio': -1, Pesado: -2 };
 const PF = {
@@ -29,6 +30,7 @@ const PF = {
   'Flexível': { t: ['Cortante', 'Impacto'], m: 'cac', e: 'correntes, chicotes', nm: ['Corrente', 'Chicote'] },
   Cano:       { t: ['Balístico'], m: 'bal', e: 'pistolas, fuzis', nm: ['Pistola', 'Fuzil', 'Carabina'] },
   Arco:       { t: ['Perfurante', 'Impacto'], m: 'mec', e: 'arcos, bestas', nm: ['Arco', 'Besta'] },
+  Defesa:     { t: ['Impacto'], m: 'cac', e: 'escudos', nm: ['Escudo', 'Broquel', 'Égide'] },
 };
 const MC = {
   cac: { n: 'Corpo-a-corpo',     g: 1, p: 0,   a: 'Físico',   r: 'Adjacente', t: ['Cortante', 'Perfurante', 'Impacto'] },
@@ -46,7 +48,7 @@ const MD = [
   { i: 'alc', n: 'Alcance', g: 1, p: 80, f: 'c', d: 'Ataca até zona curta, sem desvantagem.' },
   { i: 'alm', n: 'Alcance Médio', g: 1, p: 120, f: 'a', d: 'Ataca até zona média, sem desvantagem.' },
   { i: 'cex', n: 'Carga Expandida', g: 1, p: 120, f: 'd', d: '+2 Cargas.' },
-  { i: 'gua', n: 'Guarda', g: 1, p: 120, f: 'c', d: '+1 em Aparar (Redirecionamento) para escudo.' },
+  { i: 'gua', n: 'Guarda', g: 1, p: 120, f: 'c', d: '+1 em Aparar (Redirecionamento). Exclusivo de Escudos.' },
   { i: 'oc', n: 'Ocultável', g: 1, p: 60, f: 'a', d: 'Escondível, só de uma mão. +1d6 em Engano para escondê-la e em Ataque Furtivo.' },
   { i: 'vc', n: 'Versátil (CaC)', g: 1, p: 175, f: 'c', d: 'Uma ou duas mãos. Duas: +1d4 de dano e +2 em Aparar. Uma: mão livre.' },
   { i: 'vd', n: 'Versátil (Disparo)', g: 1, p: 175, f: 'd', d: 'Uma ou duas mãos. Duas: vantagem no acerto se não se mover. Uma: ataca Agarrado, com desvantagem.' },
@@ -78,7 +80,7 @@ const md = i => MD.find(x => x.i === i);
 const has = i => S.m.has(i) || (i === 'dm' && S.cl === 'duas');
 const nat = i => i === 'oc' && S.cl === 'peq';
 const used = () => [...S.m].filter(i => !nat(i)).length;
-const kindOk = m => m.f === 'a' || (m.f === 'c') === (PF[S.pf].m === 'cac');
+const kindOk = m => (S.cl === 'esc' ? m.i === 'gua' : m.i !== 'gua' && (m.f === 'a' || (m.f === 'c') === (PF[S.pf].m === 'cac')));
 const nome = i => (i === 'dm' ? 'Duas Mãos' : md(i).n);
 const peso = () => (S.cl === 'peq' ? S.ps : CL[S.cl].w);
 const conf = i => {
@@ -87,7 +89,7 @@ const conf = i => {
   return o;
 };
 const why = m => {
-  if (!kindOk(m)) return m.f === 'c' ? 'Só corpo-a-corpo' : 'Só disparo';
+  if (!kindOk(m)) return S.cl === 'esc' ? 'Escudos só aceitam Guarda' : m.i === 'gua' ? 'Exclusivo de Escudos' : m.f === 'c' ? 'Só corpo-a-corpo' : 'Só disparo';
   const c = conf(m.i);
   if (c.length) return 'Conflita com ' + nome(c[0]);
   return used() >= CL[S.cl].v ? 'Sem vagas' : '';
@@ -105,6 +107,7 @@ const grau = () => {
 };
 
 function norm() {
+  if (S.cl === 'esc') S.pf = 'Defesa'; else if (S.pf === 'Defesa') S.pf = 'Lâmina';
   const P = PF[S.pf];
   if (!P.t.includes(S.tp)) S.tp = P.t[0];
   if (S.cl !== 'peq') S.ps = CL[S.cl].w;
@@ -181,8 +184,8 @@ function txt() {
 /* Sorteio respeitando todas as regras, nível máximo e orçamento */
 function roll({ th = 'x', mx = 3, bd = 1e9, cc = '' } = {}) {
   for (let t = 0; t < 300; t++) {
-    S.cl = cc || pick(K(CL));
-    S.pf = pick(K(PF).filter(k => th === 'x' || (th === 'c') === (PF[k].m === 'cac')));
+    S.cl = cc || pick(K(CL).filter(k => k !== 'esc' || th !== 'd'));
+    S.pf = S.cl === 'esc' ? 'Defesa' : pick(K(PF).filter(k => k !== 'Defesa' && (th === 'x' || (th === 'c') === (PF[k].m === 'cac'))));
     S.tp = pick(PF[S.pf].t);
     S.ps = S.cl === 'peq' && S.pf === 'Punho' && Math.random() < 0.5 ? 'Desarmado' : 'Leve';
     S.m = new Set(S.cl === 'peq' ? ['oc'] : []);
@@ -257,9 +260,9 @@ function drawForge() {
     <label>Nível máximo${sel('rn', [['1', 'Aberto'], ['2', 'Restrito'], ['3', 'Negro/Militar']])}</label>
     <label>Orçamento (CDU)<input class="field-input" type="number" min="0" data-f="rb" value="${esc(F.rb)}" placeholder="sem limite"></label>
     <button class="btn btn--primary btn--sm" data-k="rnd">Sortear arma</button><span id="fj-ms" style="color:var(--red)"></span></div><div class="fj-g"><div>`;
-  h += '<h4>1 · Classe</h4><div class="fj-r" style="--w:170px">' + K(CL).map(k => { const x = CL[k]; return B('cl', k, `<b>${x.n}</b><i>${x.d} · ${x.wt}</i><span>${x.h} · ${x.v} vagas · ${x.p} CDU · ${x.c} cargas</span>`, S.cl === k); }).join('') + '</div>';
+  h += '<h4>1 · Classe</h4><div class="fj-r" style="--w:170px">' + K(CL).map(k => { const x = CL[k]; return B('cl', k, `<b>${x.n}</b><i>${x.d} · ${x.wt}</i><span>${x.h} · ${x.v} ${x.v > 1 ? 'vagas' : 'vaga'} · ${x.p} CDU${x.c ? ' · ' + x.c + ' cargas' : ''}</span>`, S.cl === k); }).join('') + '</div>';
   if (S.cl === 'peq') h += '<div class="fj-sub">Peso:<div class="fj-r" style="--w:170px">' + B('ps', 'Leve', '<b>Leve (+0)</b>', S.ps === 'Leve') + B('ps', 'Desarmado', '<b>Desarmado (+1)</b><span>só Perfil Punho</span>', S.ps === 'Desarmado', S.pf !== 'Punho' ? 'Só com Perfil Punho' : '') + '</div></div>';
-  h += '<h4>2 · Perfil</h4><div class="fj-r">' + K(PF).map(k => B('pf', k, `<b>${k}</b><i>${PF[k].t.join(', ')}</i><span>${PF[k].e}</span>`, S.pf === k)).join('') + '</div>';
+  h += '<h4>2 · Perfil</h4><div class="fj-r">' + K(PF).map(k => B('pf', k, `<b>${k}</b><i>${PF[k].t.join(', ')}</i><span>${PF[k].e}</span>`, S.pf === k, (k === 'Defesa') !== (S.cl === 'esc') ? (k === 'Defesa' ? 'Só com a classe Escudo' : 'Escudos usam o Perfil Defesa') : '')).join('') + '</div>';
   h += '<h4>3 · Mecanismo (definido pelo Perfil)</h4><div class="fj-r" style="--w:190px">' + K(MC).map(k => { const x = MC[k]; return B('mc', k, `<b>${x.n}</b><i>Grau ${['', 'I', 'II'][x.g]} · ${x.p ? '+' + x.p + ' CDU' : '—'}</i><span>${x.a} · ${x.r}</span>`, PF[S.pf].m === k, PF[S.pf].m === k ? '' : 'Definido pelo Perfil'); }).join('') + '</div>';
   h += '<h4>4 · Tipo de Dano</h4><div class="fj-r" style="--w:190px">' + P.t.map(t => B('tp', t, `<b>${t}</b><span>TrE: ${TR[t]}</span>`, S.tp === t)).join('') + '</div>';
   h += `<h4>5 · Módulos · vagas ${used()}/${c.v}</h4>`;
