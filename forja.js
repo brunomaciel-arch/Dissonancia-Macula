@@ -83,6 +83,9 @@ const used = () => [...S.m].filter(i => !nat(i)).length;
 const kindOk = m => (S.cl === 'esc' ? m.i === 'gua' : m.i !== 'gua' && (m.f === 'a' || (m.f === 'c') === (PF[S.pf].m === 'cac')));
 const nome = i => (i === 'dm' ? 'Duas Mãos' : md(i).n);
 const peso = () => (S.cl === 'peq' ? S.ps : CL[S.cl].w);
+/* Armas à distância (Cano, Arco) renomeiam as classes: mesmos valores, outro nome. */
+const RN = { peq: 'Pequena', uma: 'Média', duas: 'Grande' };
+const cn = (k, pf = S.pf) => (PF[pf].m !== 'cac' && RN[k]) || CL[k].n;
 const conf = i => {
   const o = [];
   EX.forEach(([a, b]) => { if (a === i && has(b)) o.push(b); if (b === i && has(a)) o.push(a); });
@@ -164,7 +167,7 @@ function info() {
     const m = md(i);
     modl.push(i === 'qui' ? `${m.n} (${S.q})` : i === 'tra' ? `${m.n} (Modo B: ${MC[S.mb].n}, ${S.tb}, ${c.bd})` : m.n);
   });
-  const desc = `${c.n} · ${S.pf} · ${mc.n} · ${S.tp}. Ataca com ${at}. TrE (Fluidez, dano direto na Vida): ${TR[S.tp]}. Mãos: ${mao}.`
+  const desc = `${cn(S.cl)} · ${S.pf} · ${mc.n} · ${S.tp}. Ataca com ${at}. TrE (Fluidez, dano direto na Vida): ${TR[S.tp]}. Mãos: ${mao}.`
     + (cg ? ` Cargas: ${cg}.` : '');
   const item = {
     name: (S.nm || 'Arma sem nome').slice(0, 80), description: desc.slice(0, 500), market: LV[g],
@@ -177,7 +180,7 @@ function info() {
 
 function txt() {
   const f = info();
-  return [`${S.nm} — ${CL[S.cl].n}, ${S.pf}, ${mech().n}, ${S.tp} [${f.lv}]`,
+  return [`${S.nm} — ${cn(S.cl)}, ${S.pf}, ${mech().n}, ${S.tp} [${f.lv}]`,
     ...f.rows.map(r => `${r[0]}: ${r[1]}`), ...f.mods.map(m => '• ' + m)].join('\n');
 }
 
@@ -260,7 +263,7 @@ function drawForge() {
     <label>Nível máximo${sel('rn', [['1', 'Aberto'], ['2', 'Restrito'], ['3', 'Negro/Militar']])}</label>
     <label>Orçamento (CDU)<input class="field-input" type="number" min="0" data-f="rb" value="${esc(F.rb)}" placeholder="sem limite"></label>
     <button class="btn btn--primary btn--sm" data-k="rnd">Sortear arma</button><span id="fj-ms" style="color:var(--red)"></span></div><div class="fj-g"><div>`;
-  h += '<h4>1 · Classe</h4><div class="fj-r" style="--w:170px">' + K(CL).map(k => { const x = CL[k]; return B('cl', k, `<b>${x.n}</b><i>${x.d} · ${x.wt}</i><span>${x.h} · ${x.v} ${x.v > 1 ? 'vagas' : 'vaga'} · ${x.p} CDU${x.c ? ' · ' + x.c + ' cargas' : ''}</span>`, S.cl === k); }).join('') + '</div>';
+  h += '<h4>1 · Classe' + (PF[S.pf].m !== 'cac' ? ' (arma à distância: Pequena, Média, Grande)' : '') + '</h4><div class="fj-r" style="--w:170px">' + K(CL).map(k => { const x = CL[k]; return B('cl', k, `<b>${cn(k)}</b><i>${x.d} · ${x.wt}</i><span>${x.h} · ${x.v} ${x.v > 1 ? 'vagas' : 'vaga'} · ${x.p} CDU${x.c ? ' · ' + x.c + ' cargas' : ''}</span>`, S.cl === k); }).join('') + '</div>';
   if (S.cl === 'peq') h += '<div class="fj-sub">Peso:<div class="fj-r" style="--w:170px">' + B('ps', 'Leve', '<b>Leve (+0)</b>', S.ps === 'Leve') + B('ps', 'Desarmado', '<b>Desarmado (+1)</b><span>só Perfil Punho</span>', S.ps === 'Desarmado', S.pf !== 'Punho' ? 'Só com Perfil Punho' : '') + '</div></div>';
   h += '<h4>2 · Perfil</h4><div class="fj-r">' + K(PF).map(k => B('pf', k, `<b>${k}</b><i>${PF[k].t.join(', ')}</i><span>${PF[k].e}</span>`, S.pf === k, (k === 'Defesa') !== (S.cl === 'esc') ? (k === 'Defesa' ? 'Só com a classe Escudo' : 'Escudos usam o Perfil Defesa') : '')).join('') + '</div>';
   h += '<h4>3 · Mecanismo (definido pelo Perfil)</h4><div class="fj-r" style="--w:190px">' + K(MC).map(k => { const x = MC[k]; return B('mc', k, `<b>${x.n}</b><i>Grau ${['', 'I', 'II'][x.g]} · ${x.p ? '+' + x.p + ' CDU' : '—'}</i><span>${x.a} · ${x.r}</span>`, PF[S.pf].m === k, PF[S.pf].m === k ? '' : 'Definido pelo Perfil'); }).join('') + '</div>';
@@ -277,7 +280,7 @@ function drawForge() {
   if (has('qui')) h += '<div class="fj-sub">Aplicador Químico:<div class="fj-r" style="--w:140px">' + ['Queimadura', 'Veneno'].map(q => B('q', q, `<b>${q}</b>`, S.q === q)).join('') + '</div></div>';
   if (has('tra')) h += `<div class="fj-sub">Modo B (dado ${c.bd}) · Mecanismo:<div class="fj-r" style="--w:170px">` + K(MC).map(k => B('mb', k, `<b>${MC[k].n}</b><i>+${MC[k].p} CDU</i>`, S.mb === k)).join('') + '</div><div style="margin-top:6px">Tipo de Dano:</div><div class="fj-r" style="--w:140px">' + MC[S.mb].t.map(t => B('tb', t, `<b>${t}</b>`, S.tb === t)).join('') + '</div></div>';
   h += `</div><aside class="fj-card"><input class="field-input" id="fj-nm" value="${esc(S.nm)}" maxlength="80" aria-label="Nome da arma">
-    <p style="margin:8px 0"><span class="fj-lv l${f.g}">${f.lv}</span> <small>${c.n} · ${S.pf} · ${mech().n} · ${S.tp}</small></p>
+    <p style="margin:8px 0"><span class="fj-lv l${f.g}">${f.lv}</span> <small>${cn(S.cl)} · ${S.pf} · ${mech().n} · ${S.tp}</small></p>
     <label style="font-size:12px"><input type="checkbox" data-f="prof"${S.prof ? ' checked' : ''}> Tenho proficiência (+1 do tipo no dano)</label>
     <table>${f.rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('')}</table>
     <ul>${f.mods.map(m => `<li>${esc(m)}</li>`).join('')}</ul>${f.nt.map(n => `<div class="fj-nn">${n}</div>`).join('')}</aside></div>`;
@@ -289,7 +292,7 @@ function drawBook() {
   if (!list.length) return '<p class="fj-nn">O caderno está vazio. Monte uma arma e use “Salvar no caderno” para anotá-la.</p>';
   return list.map(e => {
     const f = withSt(e.st, info);
-    return `<div class="fj-row"><div><b>${esc(e.st.nm)}</b><br><small>${CL[e.st.cl].n} · ${e.st.pf} · ${e.st.tp} · ${f.item.damage} · ${f.p} CDU</small></div>
+    return `<div class="fj-row"><div><b>${esc(e.st.nm)}</b><br><small>${cn(e.st.cl, e.st.pf)} · ${e.st.pf} · ${e.st.tp} · ${f.item.damage} · ${f.p} CDU</small></div>
       <span class="fj-lv l${f.g}">${LV[f.g]}</span>
       <button class="btn btn--ghost btn--sm" data-k="op" data-v="${e.id}">Abrir</button>
       ${O.onUse ? `<button class="btn btn--primary btn--sm" data-k="cu" data-v="${e.id}">${esc(O.useLabel || 'Usar')}</button>` : ''}
