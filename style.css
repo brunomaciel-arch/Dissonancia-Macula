@@ -4274,3 +4274,22 @@ select.field-select option {
 /* Detalhe do mestre: a janela inteira rola (.md-body). Os blocos não podem encolher para
    caber na altura da janela, senão a História e a tabela de equipamentos sumiam. */
 .md-body > * { flex-shrink: 0; }
+
+/* ══════════════════════════════════════════════════════
+   CAIXAS (MODAIS) — nunca maiores que a janela
+   Cabeçalho e rodapé ficam fixos; só o corpo rola.
+   Antes, uma caixa alta (ex.: Conceder equipamento) vazava
+   para fora da janela sem rolagem e escondia os botões.
+   ══════════════════════════════════════════════════════ */
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 64px);
+}
+.modal__header,
+.modal__footer { flex-shrink: 0; }
+.modal__body {
+  overflow-y: auto;
+  min-height: 0;
+}
+.modal__body > * { flex-shrink: 0; }
