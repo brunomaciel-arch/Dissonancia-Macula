@@ -8,6 +8,7 @@
 
 import { cloud } from './cloud.js';
 import { openForja } from './forja.js';
+import { openForjaAmeacas } from './forja-ameacas.js';
 import { generateCode, formatCode, explainError, signInWithGoogle } from './campaign.js';
 import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS, MARKET_LEVELS } from './state.js';
 
@@ -420,6 +421,7 @@ export function initMaster(context) {
     mode: 'master', toast: ctx.toast, useLabel: 'Conceder ao jogador', onUse: fillGrantFromItem,
   }));
   $('#master-btn-forja')?.addEventListener('click', () => openForja({ mode: 'master', toast: ctx.toast }));
+  $('#master-btn-forja-ameacas')?.addEventListener('click', () => openForjaAmeacas({ toast: ctx.toast }));
   $('#master-grant-consumable').addEventListener('click', () => openGrant('consumable'));
   $('#master-grant-ability').addEventListener('click', () => openGrant('ability'));
 
