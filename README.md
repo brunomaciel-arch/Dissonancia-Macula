@@ -159,10 +159,30 @@ O que o mestre vê: toda a ficha, **exceto** Logbook, histórico de rolagens, we
 2. Dê um nome à campanha e clique em **Gerar código**. Entregue o código aos jogadores.
 3. Os cards dos jogadores aparecem e atualizam sozinhos. Clique num card para ver a ficha completa em **somente leitura** (identidade com título, formas, idade e nascimento, história, atributos, status, perícias calculadas, arsenal e habilidades).
 4. Use **+ Equipamento**, **+ Consumível** ou **+ Habilidade** para conceder algo ao jogador.
+5. **🗑 Remover ficha** (no rodapé da ficha aberta) tira a cópia da campanha — útil para limpar duplicatas ou cópias antigas. A ficha do jogador, no aparelho dele, não é apagada; se ele ainda estiver conectado com o mesmo login, ela reaparece quando ele abrir ou editar a ficha.
 O mestre **nunca altera a ficha do jogador**. A concessão vai para uma caixa de entrada; quando o jogador abre a ficha, o app a incorpora e avisa. Se o jogador estiver offline, recebe na próxima vez que abrir a ficha.
  
 ---
  
+## Conta e Sincronização das Fichas
+
+Botão **👤 Conta** na central de personagens. Funciona com **e-mail e senha** ou **Google**, e a mesma conta serve para jogador e para o Modo Mestre.
+
+- **Sem conta:** tudo continua só no `localStorage` do navegador, como antes.
+- **Com conta:** cada ficha é enviada para a nuvem poucos segundos depois de cada alteração (`users/{uid}/agents/{id}` no Firestore). Ao abrir o site ou voltar para a aba, as mudanças feitas em outros aparelhos são trazidas. Também há o botão **Sincronizar agora**.
+- **Fichas que já existiam antes do login** são enviadas para a conta na primeira sincronização — nada precisa ser refeito.
+- **Criar conta** num navegador que já tem fichas ligadas a uma campanha **promove o login anônimo** (mesmo uid): o vínculo com o mestre é preservado. Entrar numa conta que já existe troca a identidade — o app avisa antes; nesse caso o mestre usa **Remover ficha** na cópia antiga e o jogador abre a ficha de novo.
+- **Conflito** (a mesma ficha editada em dois aparelhos offline): a versão mais recente vence e a mais antiga é guardada como uma cópia "(cópia dd/mm hh:mm)". Nada é descartado.
+- **Excluir** uma ficha num aparelho a remove da nuvem. Uma ficha apagada em outro aparelho **não** some deste: ela é reenviada (preferimos duplicar a perder).
+- **Foto:** a nuvem guarda uma versão reduzida (até 800 px). O aparelho de origem mantém a original.
+- **Webhooks do Discord** também vão para a nuvem da própria conta, para acompanharem a ficha entre aparelhos. Só o dono da conta consegue ler (Regras do Firestore).
+
+**Configuração (uma vez, no console do Firebase):**
+1. *Authentication → Método de login:* ativar **E-mail/senha** (Google e Anônimo já devem estar ativos).
+2. *Firestore → Regras:* substituir pelas regras de `firestore.rules` (já incluem `campaigns`, com o mestre podendo remover fichas, e `users`).
+
+---
+
 ## Persistência de Dados
  
 Todos os dados são salvos automaticamente no `localStorage` do navegador a cada alteração. Nada é enviado para a internet, exceto as mensagens de webhook do Discord (quando configurado) e as fichas que você escolher vincular a uma campanha.
