@@ -41,6 +41,7 @@ Controle completo dos valores vitais, atributos e estado do personagem.
 - PRE — Precisão
 - PRS — Presença
 - FIS — Físico
+
 **Status Vitais:**
 - **Vida** — valor atual pode chegar até −10, entrando na **Zona Crítica**, destacada na barra com padrão de listras vermelhas. Botões de atalho: Máximo (restaura ao total) e campo ±valor para adicionar ou remover uma quantidade específica
 - **Barreira Mágica** — limite calculado automaticamente por (RAZ + INS) × 5. Mesmos atalhos da Vida
@@ -168,7 +169,7 @@ O mestre **nunca altera a ficha do jogador**. A concessão vai para uma caixa de
 
 Botão **👤 Conta** na central de personagens. Funciona com **e-mail e senha** ou **Google**, e a mesma conta serve para jogador e para o Modo Mestre.
 
-- **Sem conta:** tudo continua só no `localStorage` do navegador, como antes.
+- **Sem conta:** tudo continua só no `localStorage` do navegador.
 - **Com conta:** cada ficha é enviada para a nuvem poucos segundos depois de cada alteração (`users/{uid}/agents/{id}` no Firestore). Ao abrir o site ou voltar para a aba, as mudanças feitas em outros aparelhos são trazidas. Também há o botão **Sincronizar agora**.
 - **Fichas que já existiam antes do login** são enviadas para a conta na primeira sincronização — nada precisa ser refeito.
 - **Criar conta** num navegador que já tem fichas ligadas a uma campanha **promove o login anônimo** (mesmo uid): o vínculo com o mestre é preservado. Entrar numa conta que já existe troca a identidade — o app avisa antes; nesse caso o mestre usa **Remover ficha** na cópia antiga e o jogador abre a ficha de novo.
