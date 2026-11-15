@@ -9,7 +9,8 @@
 import { cloud } from './cloud.js';
 import { openForja } from './forja.js';
 import { openForjaAmeacas } from './forja-ameacas.js';
-import { generateCode, formatCode, explainError, signInWithGoogle } from './campaign.js';
+import { generateCode, formatCode, explainError } from './campaign.js';
+import { onAccountChange, accountSignOut } from './account.js';
 import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS, MARKET_LEVELS } from './state.js';
 
 const $ = (s, c = document) => c.querySelector(s);
@@ -105,11 +106,11 @@ async function refreshAuth() {
 
   renderAuth();
   if (S.user) await loadCampaigns();
-  else notice('Entre com sua conta Google para criar e acompanhar campanhas.');
+  else notice('Entre com sua conta (e-mail ou Google) para criar e acompanhar campanhas.');
 }
 
 function renderAuth() {
-  $('#master-user').textContent = S.user ? (S.user.email || 'Conta Google') : 'sem login';
+  $('#master-user').textContent = S.user ? (S.user.email || 'Conta') : 'sem login';
   $('#master-btn-login').hidden  = !!S.user || !cloud.isConfigured();
   $('#master-btn-logout').hidden = !S.user;
 }
@@ -214,6 +215,24 @@ function bar(label, color, cur, max) {
     <span class="agent-card__bar-vals">${cur}/${max}</span></div>`;
 }
 
+/* ══════════ Remover ficha da campanha ══════════ */
+async function removeCharacter() {
+  if (!S.code || !S.detailId) return;
+  const ch = S.chars.find(c => c.id === S.detailId);
+  const nome = ch?.name || 'esta ficha';
+  if (!confirm(`Remover "${nome}" da campanha?\n\n` +
+      'Some só a cópia que você vê aqui; a ficha do jogador, no aparelho dele, não é apagada. ' +
+      'Se ele ainda estiver conectado com o mesmo login, a ficha volta sozinha na próxima vez que abrir ou editar. ' +
+      'Use para limpar cópias antigas ou duplicadas.')) return;
+  const code = S.code, id = S.detailId, grants = [...(S.pendingIds || [])];
+  closeDetail();
+  try {
+    for (const g of grants) { try { await cloud.deleteGrant(code, id, g); } catch { /* concessões pendentes: melhor esforço */ } }
+    await cloud.deleteCharacter(code, id);
+    ctx.toast(`Ficha "${nome}" removida da campanha.`, 'success');
+  } catch (e) { ctx.toast(explainError(e), 'error'); }
+}
+
 /* ══════════ Detalhe (somente leitura) ══════════ */
 function stopWatchingGrants() { if (S.unsubGrants) S.unsubGrants(); S.unsubGrants = null; S.pending = 0; }
 
@@ -222,6 +241,7 @@ function openDetail(charId) {
   stopWatchingGrants();
   S.unsubGrants = cloud.watchGrants(S.code, charId, list => {
     S.pending = list.length;
+    S.pendingIds = list.map(g => g.id);
     const el = $('#master-pending');
     if (el) el.textContent = S.pending ? `${S.pending} concessão(ões) aguardando o jogador abrir a ficha` : '';
   }, () => {});
@@ -396,14 +416,13 @@ export function initMaster(context) {
   ctx = { ...ctx, ...context };
 
   $('#master-btn-back').addEventListener('click', closeMaster);
-  $('#master-btn-login').addEventListener('click', async () => {
-    const r = await signInWithGoogle();
-    if (!r.ok) { ctx.toast(r.error, 'error'); return; }
-    await refreshAuth();
-  });
+  // Login e criação de conta moram no modal "Conta" (e-mail/senha ou Google).
+  $('#master-btn-login').addEventListener('click', () => ctx.openAccount && ctx.openAccount());
+  // Quando alguém entra ou sai pelo modal, a tela de Mestre se atualiza sozinha.
+  onAccountChange(() => { if ($('#view-master').classList.contains('active')) refreshAuth(); });
   $('#master-btn-logout').addEventListener('click', async () => {
     stopWatchingChars(); S.code = ''; S.chars = [];
-    try { await cloud.signOut(); } catch { /* ignora */ }
+    await accountSignOut();
     await refreshAuth();
   });
   $('#master-btn-create').addEventListener('click', createCampaign);
@@ -415,6 +434,7 @@ export function initMaster(context) {
   });
 
   $('#master-detail-close').addEventListener('click', closeDetail);
+  $('#master-remove-char').addEventListener('click', removeCharacter);
   $('#modal-master-detail').addEventListener('click', e => { if (e.target === e.currentTarget) closeDetail(); });
   $('#master-grant-item').addEventListener('click', () => openGrant('equipment'));
   $('#master-grant-forja')?.addEventListener('click', () => openForja({
