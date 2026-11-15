@@ -288,10 +288,26 @@ export function loadAllAgents() {
   } catch (e) { console.error('[State] load:', e); return []; }
 }
 
-function saveAllAgents(agents) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(agents)); return true; }
+/** Ouvintes de qualquer gravação local (usado pela sincronização da conta). */
+const _changeListeners = [];
+export function addChangeListener(fn) { _changeListeners.push(fn); }
+
+function saveAllAgents(agents, { silent = false } = {}) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(agents)); }
   catch (e) { console.error('[State] save:', e); return false; }
+  if (!silent) {
+    for (const fn of _changeListeners) {
+      try { fn(); } catch (e) { console.warn('[State] change listener:', e); }
+    }
+  }
+  return true;
 }
+
+/** Grava a lista inteira SEM disparar a sincronização (usado ao trazer fichas da nuvem). */
+export function replaceAllAgentsSilently(agents) { return saveAllAgents(agents, { silent: true }); }
+
+/** Novo id de ficha (usado ao guardar uma cópia em caso de conflito). */
+export function newAgentId() { return generateId(); }
 
 /* ── CRUD ── */
 export function createAgent(name, title = '') {
