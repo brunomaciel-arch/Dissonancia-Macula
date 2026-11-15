@@ -6,9 +6,13 @@ import { sendStatus, sendTest } from './webhook.js';
 import { rollWeapon, rollInitiative } from './dice.js';
 import {
   initCampaign, attachCampaign, detachCampaign, connectCampaign, disconnectCampaign,
-  releaseCampaign, signInWithGoogle, getAccountLabel, onCampaignStatus, getCampaignStatus,
+  releaseCampaign, getAccountLabel, onCampaignStatus, getCampaignStatus,
   cloudReady, formatCode, normalizeCode,
 } from './campaign.js';
+import {
+  initAccount, accountReady, getAccountInfo, getAccountStatus, onAccountStatus, onAccountChange,
+  accountSignIn, accountSignUp, accountGoogle, accountResetPassword, accountSignOut, syncNow,
+} from './account.js';
 import { initMaster, openMaster } from './master.js';
 import { openForja } from './forja.js';
 import {
@@ -1295,11 +1299,19 @@ export function bindSheetEvents() {
 ════════════════════════════════════ */
 export function bindRosterEvents() {
   initCampaign({ toast: showToast, onGrantApplied: refreshAfterGrant });
+  initAccount({
+    toast: showToast,
+    // Fichas baixadas da nuvem: redesenha a central se ela estiver na tela.
+    onRosterChanged: () => { if ($('#view-roster')?.classList.contains('active')) renderRoster(); },
+  });
   initMaster({
     toast: showToast,
     showView,
+    openAccount: showAccountModal,
     onExit: () => { showView('roster'); renderRoster(); },
   });
+  $('#btn-account').addEventListener('click', showAccountModal);
+  bindAccountModal();
   $('#btn-master').addEventListener('click', openMaster);
   $('#btn-forja-home')?.addEventListener('click', () => openForja({ toast: showToast }));
 
@@ -1435,13 +1447,101 @@ function bindCampaignModal() {
     renderCampaignModal();
   });
 
-  $('#campaign-btn-google').addEventListener('click', async () => {
+  $('#campaign-btn-account').addEventListener('click', () => {
     if (!cloudReady()) { setCampaignFeedback('Configure o Firebase primeiro.', 'error'); return; }
-    const r = await signInWithGoogle();
-    if (!r.ok) { setCampaignFeedback(r.error, 'error'); return; }
-    $('#campaign-account').textContent = `Conectado como: ${r.email || 'conta Google'}`;
-    const agent = getActiveAgent();
-    if (agent?.campaignCode) attachCampaign(agent);
+    hideCampaignModal();
+    showAccountModal();
+  });
+}
+
+/* ════════════════════════════════════
+   MODAL DE CONTA (jogador e mestre)
+════════════════════════════════════ */
+function setAccountFeedback(text, kind = '') {
+  const el = $('#account-feedback');
+  el.textContent = text || '';
+  el.className = `config-feedback${kind ? ` ${kind}` : ''}`;
+}
+
+function renderAccountSyncStatus() {
+  const st = getAccountStatus();
+  if (st.state === 'syncing') { setAccountFeedback('Sincronizando...', 'loading'); return; }
+  const hhmm = new Date(st.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (st.state === 'ok') setAccountFeedback(`✓ ${st.message} às ${hhmm}`, 'ok');
+  else if (st.state === 'error') setAccountFeedback(`✗ ${st.message}`, 'error');
+}
+
+async function renderAccountModal() {
+  if (!accountReady()) {
+    $('#account-status').textContent = 'O Firebase ainda não foi configurado neste site (veja o README).';
+    $('#account-guest').hidden = true; $('#account-user').hidden = true;
+    return;
+  }
+  const info = await getAccountInfo();
+  $('#account-guest').hidden = info.loggedIn;
+  $('#account-user').hidden  = !info.loggedIn;
+  $('#account-status').textContent = info.loggedIn
+    ? `Conectado como: ${info.label}`
+    : 'Sem conta — suas fichas ficam só neste navegador.';
+  if (info.loggedIn) renderAccountSyncStatus();
+}
+
+export function showAccountModal() {
+  setAccountFeedback('');
+  $('#account-password').value = '';
+  $('#modal-account').hidden = false;
+  renderAccountModal();
+}
+function hideAccountModal() { $('#modal-account').hidden = true; }
+
+async function handleAccountResult(r, okToast) {
+  if (!r.ok) { setAccountFeedback(r.error, 'error'); return; }
+  $('#account-password').value = '';
+  showToast(okToast, 'success');
+  await renderAccountModal();
+  if (r.warning) setAccountFeedback(r.warning, 'error');
+  if (getActiveAgent()?.campaignCode) { /* o vínculo com a campanha segue o mesmo uid; nada a refazer aqui */ }
+}
+
+function bindAccountModal() {
+  $('#modal-close-account').addEventListener('click', hideAccountModal);
+  $('#modal-cancel-account').addEventListener('click', hideAccountModal);
+  $('#modal-account').addEventListener('click', e => { if (e.target === e.currentTarget) hideAccountModal(); });
+  onAccountStatus(() => { if (!$('#modal-account').hidden && !$('#account-user').hidden) renderAccountSyncStatus(); });
+  onAccountChange(() => { if (!$('#modal-account').hidden) renderAccountModal(); });
+
+  const creds = () => [$('#account-email').value, $('#account-password').value];
+  $('#account-password').addEventListener('keydown', e => { if (e.key === 'Enter') $('#account-btn-signin').click(); });
+
+  $('#account-btn-signin').addEventListener('click', async () => {
+    setAccountFeedback('Entrando...', 'loading');
+    handleAccountResult(await accountSignIn(...creds()), 'Você entrou! Suas fichas estão sendo sincronizadas.');
+  });
+  $('#account-btn-signup').addEventListener('click', async () => {
+    setAccountFeedback('Criando conta...', 'loading');
+    handleAccountResult(await accountSignUp(...creds()), 'Conta criada! Suas fichas estão sendo guardadas na nuvem.');
+  });
+  $('#account-btn-google').addEventListener('click', async () => {
+    setAccountFeedback('Abrindo o login do Google...', 'loading');
+    handleAccountResult(await accountGoogle(), 'Você entrou com o Google! Suas fichas estão sendo sincronizadas.');
+  });
+  $('#account-btn-reset').addEventListener('click', async () => {
+    const r = await accountResetPassword($('#account-email').value);
+    if (!r.ok) { setAccountFeedback(r.error, 'error'); return; }
+    setAccountFeedback('Enviamos um e-mail para redefinir a senha (veja também o spam).', 'ok');
+  });
+  $('#account-btn-sync').addEventListener('click', async () => {
+    setAccountFeedback('Sincronizando...', 'loading');
+    await syncNow({ full: true });
+    renderAccountSyncStatus();
+    if ($('#view-roster')?.classList.contains('active')) renderRoster();
+  });
+  $('#account-btn-signout').addEventListener('click', async () => {
+    if (!confirm('Sair da conta? As fichas continuam salvas neste navegador e na nuvem.')) return;
+    await accountSignOut();
+    setAccountFeedback('');
+    showToast('Você saiu da conta.', 'success');
+    renderAccountModal();
   });
 }
 
