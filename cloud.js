@@ -21,7 +21,9 @@ function loadSdk() {
         import(`${SDK_BASE}/firebase-firestore.js`),
       ]);
       const app = appM.initializeApp(FIREBASE_CONFIG);
-      return { authM, fsM, auth: authM.getAuth(app), db: fsM.getFirestore(app) };
+      const auth = authM.getAuth(app);
+      auth.languageCode = 'pt-BR'; // e-mails do Firebase (redefinir senha) em português
+      return { authM, fsM, auth, db: fsM.getFirestore(app) };
     })().catch(err => { _sdkPromise = null; throw err; });
   }
   return _sdkPromise;
@@ -29,6 +31,7 @@ function loadSdk() {
 
 const charsPath  = code => ['campaigns', code, 'characters'];
 const grantsPath = (code, charId) => ['campaigns', code, 'characters', charId, 'grants'];
+const userAgentsPath = uid => ['users', uid, 'agents']; // fichas pessoais da conta (backup/sincronização)
 
 export const cloud = {
 
@@ -69,6 +72,40 @@ export const cloud = {
       catch (e) { if (e.code !== 'auth/credential-already-in-use') throw e; }
     }
     return (await authM.signInWithPopup(auth, provider)).user;
+  },
+
+  /** Observa login/logout. Retorna a função que cancela. */
+  onAuthChange(cb) {
+    let off = () => {}; let cancelled = false;
+    loadSdk().then(({ authM, auth }) => {
+      if (cancelled) return;
+      off = authM.onAuthStateChanged(auth, cb);
+    }).catch(() => {});
+    return () => { cancelled = true; off(); };
+  },
+
+  /**
+   * Cria conta com e-mail e senha. Se já houver um usuário anônimo, a conta é
+   * VINCULADA a ele (mesmo uid), preservando as fichas já ligadas a campanhas.
+   */
+  async signUpEmail(email, password) {
+    const { authM, auth } = await loadSdk();
+    const cur = await this.currentUser();
+    if (cur && cur.isAnonymous) {
+      const cred = authM.EmailAuthProvider.credential(email, password);
+      return (await authM.linkWithCredential(cur, cred)).user;
+    }
+    return (await authM.createUserWithEmailAndPassword(auth, email, password)).user;
+  },
+
+  async signInEmail(email, password) {
+    const { authM, auth } = await loadSdk();
+    return (await authM.signInWithEmailAndPassword(auth, email, password)).user;
+  },
+
+  async resetPassword(email) {
+    const { authM, auth } = await loadSdk();
+    await authM.sendPasswordResetEmail(auth, email);
   },
 
   async signOut() {
@@ -118,6 +155,24 @@ export const cloud = {
         err => onError && onError(err));
     }).catch(err => onError && onError(err));
     return () => { cancelled = true; off(); };
+  },
+
+  /* ── Fichas da conta (backup pessoal: users/{uid}/agents/{id}) ── */
+
+  async listUserAgents(uid) {
+    const { fsM, db } = await loadSdk();
+    const snap = await fsM.getDocs(fsM.collection(db, ...userAgentsPath(uid)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  async putUserAgent(uid, agentId, data) {
+    const { fsM, db } = await loadSdk();
+    await fsM.setDoc(fsM.doc(db, ...userAgentsPath(uid), agentId), data);
+  },
+
+  async deleteUserAgent(uid, agentId) {
+    const { fsM, db } = await loadSdk();
+    await fsM.deleteDoc(fsM.doc(db, ...userAgentsPath(uid), agentId));
   },
 
   /* ── Concessões (mestre → jogador) ── */
