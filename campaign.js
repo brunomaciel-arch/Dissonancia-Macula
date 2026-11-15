@@ -113,9 +113,17 @@ export function onCampaignStatus(fn) { _statusListeners.add(fn); return () => _s
 export function explainError(e) {
   const c = e?.code || '';
   if (c.includes('permission-denied')) {
-    return 'Sem permissão: esta ficha já foi vinculada por outro login. Entre com a mesma conta Google, ou desconecte e conecte de novo.';
+    return 'Sem permissão: esta ficha foi enviada à campanha por outro login. Peça ao mestre para usar "Remover ficha" na tela dele e depois abra a ficha de novo. (Entrar na mesma conta de antes também resolve.)';
   }
-  if (c === 'auth/operation-not-allowed') return 'Ative o login Anônimo e o Google em Authentication, no console do Firebase.';
+  if (c === 'auth/operation-not-allowed') return 'Ative os métodos de login (Anônimo, Google e E-mail/senha) em Authentication, no console do Firebase.';
+  if (c === 'auth/email-already-in-use') return 'Este e-mail já tem conta (talvez criada com o Google). Use Entrar.';
+  if (c === 'auth/invalid-email') return 'E-mail inválido.';
+  if (c === 'auth/weak-password') return 'Senha fraca: use pelo menos 6 caracteres.';
+  if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-login-credentials'].includes(c)) return 'E-mail ou senha incorretos.';
+  if (c === 'auth/too-many-requests') return 'Muitas tentativas. Aguarde um pouco e tente de novo.';
+  if (c === 'auth/network-request-failed') return 'Sem conexão com o servidor.';
+  if (c === 'auth/popup-blocked') return 'O navegador bloqueou a janela de login. Libere pop-ups para este site.';
+  if (c === 'auth/credential-already-in-use' || c === 'auth/account-exists-with-different-credential') return 'Já existe uma conta com esses dados. Use Entrar.';
   if (c === 'auth/unauthorized-domain') return 'Este endereço não está em "Domínios autorizados" do Firebase Authentication.';
   if (c.includes('unavailable') || c.includes('network')) return 'Sem conexão com o servidor.';
   return e?.message || 'Erro desconhecido.';
