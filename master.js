@@ -174,6 +174,7 @@ function feedIniciativa() {
         name: ch.name || 'Sem nome',
         vida: num(a.vidaCur), vidaMax: num(a.vidaMax),
         bm: num(a.bmCur), bmMax: calcBmMax(a),
+        rd: num(a.rd),
         fa: Array.from({ length: 5 }, (_, i) => !!a.actionSources[i]),
         mod: calcInitiativeMod(a),
       };
