@@ -160,6 +160,7 @@ function doFree() {
 
 function drawFree() {
   const h = st.rolls || [];
+  $('#if-clear').style.display = h.length ? '' : 'none';
   $('#if-res').innerHTML = h.length
     ? `<span class="ini-fres__label">${esc(h[0].label)}</span> <span class="ini-fres__det">${esc(h[0].detail)}</span> <span class="ini-fres__tot">= ${h[0].total}</span>`
     : '<span class="ini-hint">Nenhuma rolagem ainda.</span>';
@@ -232,6 +233,7 @@ function mount() {
       <div class="ini-free__row"><label for="if-input">Dado livre</label>
         <input class="field-input" id="if-input" type="text" placeholder="ex: 4d6+2  /  3d8+1" spellcheck="false">
         <button class="btn btn--primary btn--sm" data-act="free">Rolar</button>
+        <button class="btn btn--ghost btn--sm" data-act="free-clear" id="if-clear" title="Apaga o histórico de rolagens do dado livre">🗑 Limpar histórico</button>
         <span id="if-res"></span></div>
       <p class="ini-ferr" id="if-err"></p>
       <div class="ini-hist" id="if-hist"></div>
@@ -350,6 +352,7 @@ function onClick(e) {
   const act = b.dataset.act, c = b.dataset.id ? get(b.dataset.id) : null;
   switch (act) {
     case 'free': if (!doFree()) return; break;
+    case 'free-clear': st.rolls = []; break;
     case 'next': step(1); break;
     case 'prev': step(-1); break;
     case 'roll': if (c) roll(c); break;
