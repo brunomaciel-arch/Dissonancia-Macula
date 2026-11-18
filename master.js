@@ -9,6 +9,7 @@
 import { cloud } from './cloud.js';
 import { openForja } from './forja.js';
 import { openForjaAmeacas } from './forja-ameacas.js';
+import { openIniciativa, feedCampaign } from './iniciativa.js';
 import { generateCode, formatCode, explainError } from './campaign.js';
 import { onAccountChange, accountSignOut } from './account.js';
 import { calcBmMax, calcSkillMod, calcInitiativeMod, CHAR_TYPE_LABELS, MARKET_LEVELS } from './state.js';
@@ -78,6 +79,7 @@ function closeMaster() {
   stopWatchingChars();
   stopWatchingGrants();
   S.code = ''; S.chars = []; S.detailId = '';
+  feedIniciativa();
   closeDetail();
   ctx.onExit();
 }
@@ -159,11 +161,32 @@ async function createCampaign() {
   finally { btn.disabled = false; }
 }
 
+/** Entrega ao Rastreador de Iniciativa os dados já normalizados das fichas da campanha aberta. */
+function feedIniciativa() {
+  const camp = S.campaigns?.find(c => c.code === S.code);
+  feedCampaign({
+    code: S.code,
+    name: camp?.name || '',
+    chars: S.chars.map(ch => {
+      const a = safeSheet(ch.sheet);
+      return {
+        id: ch.id,
+        name: ch.name || 'Sem nome',
+        vida: num(a.vidaCur), vidaMax: num(a.vidaMax),
+        bm: num(a.bmCur), bmMax: calcBmMax(a),
+        fa: Array.from({ length: 5 }, (_, i) => !!a.actionSources[i]),
+        mod: calcInitiativeMod(a),
+      };
+    }),
+  });
+}
+
 function stopWatchingChars() { if (S.unsubChars) S.unsubChars(); S.unsubChars = null; }
 
 function selectCampaign(code) {
   stopWatchingChars();
   S.code = code; S.chars = [];
+  feedIniciativa();
   const camp = S.campaigns.find(c => c.code === code);
   $('#master-camp-title').textContent = camp?.name || 'Campanha';
   $('#master-camp-code').textContent = formatCode(code);
@@ -173,6 +196,7 @@ function selectCampaign(code) {
   S.unsubChars = cloud.watchCharacters(code, list => {
     S.chars = list.sort((a, b) => num(b.updatedAt) - num(a.updatedAt));
     renderPlayers();
+    feedIniciativa();
     if (S.detailId) renderDetail();
   }, err => notice(explainError(err)));
 }
@@ -442,6 +466,7 @@ export function initMaster(context) {
   }));
   $('#master-btn-forja')?.addEventListener('click', () => openForja({ mode: 'master', toast: ctx.toast }));
   $('#master-btn-forja-ameacas')?.addEventListener('click', () => openForjaAmeacas({ toast: ctx.toast }));
+  $('#master-btn-iniciativa')?.addEventListener('click', () => openIniciativa({ toast: ctx.toast }));
   $('#master-grant-consumable').addEventListener('click', () => openGrant('consumable'));
   $('#master-grant-ability').addEventListener('click', () => openGrant('ability'));
 
