@@ -8,6 +8,7 @@
    · Modo manual: tudo é digitado pelo Mestre, sem login nem campanha.
    · Oponentes são sempre editáveis à mão (inclusive as FA).
    · RD (Traje): da ficha nos jogadores ligados; manual nos demais.
+     "Dano bruto" desconta a RD e tira só da Vida (nunca da BM).
    · Dado livre: mesma sintaxe da aba Perícias (ex.: 4d6+2).
    · Persistência: localStorage, uma lista por campanha + uma manual.
    ══════════════════════════════════════════════════════════════ */
@@ -204,6 +205,9 @@ const CSS = `
 .ini-delta{width:52px!important;padding:2px 4px!important;text-align:center;margin-left:auto}
 .ini-stat .agent-card__bar-track{width:100%}
 .ini-neg{color:var(--red)!important}
+.ini-dmg{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ini-dmg .field-input{width:92px!important;padding:2px 6px!important;font-size:12px}
+.ini-dmgnote{font-size:10.5px;color:var(--text-dim)}
 .ini-rd{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-dim)}
 .ini-rd .ini-num{width:52px!important}
 .ini-fa{display:flex;gap:4px}
@@ -297,7 +301,12 @@ function statBlock(c, f, label, ro) {
       <input class="field-input ini-num${flag}" type="number" data-id="${c.id}" data-f="${f}" value="${cur}"${ro ? ' readonly' : ''}>/
       <input class="field-input ini-num" type="number" data-id="${c.id}" data-f="${f}Max" value="${max}"${ro ? ' readonly' : ''}>
       ${ro ? '' : `<input class="field-input ini-delta" data-id="${c.id}" data-f="${f}Delta" placeholder="±" title="Digite -5 para dano ou +3 para cura e pressione Enter">`}</div>
-    <div class="agent-card__bar-track"><div class="agent-card__bar-fill agent-card__bar-fill--${fill}" data-bar="${c.id}:${f}" style="width:${pct}%"></div></div></div>`;
+    <div class="agent-card__bar-track"><div class="agent-card__bar-fill agent-card__bar-fill--${fill}" data-bar="${c.id}:${f}" style="width:${pct}%"></div></div>${f === 'vida' ? dmgBlock(c, ro) : ''}</div>`;
+}
+
+function dmgBlock(c, ro) {
+  const tip = ro ? 'Calcula o dano líquido (dano − RD). A ficha do jogador não é alterada.' : 'Dano bruto: subtrai a RD e tira o resultado só da Vida (a BM não é afetada). Enter para aplicar.';
+  return `<div class="ini-dmg"><input class="field-input" type="number" min="1" data-id="${c.id}" data-f="dmg" placeholder="${ro ? 'calcular dano' : 'aplicar dano'}" title="${tip}">${c.note ? `<span class="ini-dmgnote">${esc(c.note)}</span>` : ''}</div>`;
 }
 
 function drawList() {
@@ -385,7 +394,19 @@ function onChange(e) {
   if (t.id === 'ini-scope') { save(); scope = t.value; st = load(); syncLinked(); render(); return; }
   const c = t.dataset.id ? get(t.dataset.id) : null, f = t.dataset.f;
   if (!c || !f) return;
-  if (c.srcId && f !== 'init') return;               // ficha ligada: só a iniciativa é editável
+  if (c.srcId && f !== 'init' && f !== 'dmg') return;  // ficha ligada: só iniciativa e a calculadora de dano
+
+  if (f === 'dmg') {                                 // dano bruto → desconta RD → só Vida
+    const bruto = int(t.value, 0); t.value = '';
+    if (bruto < 1) return;
+    const rd = Math.max(0, c.rd ?? 0), liq = Math.max(0, bruto - rd);
+    if (c.srcId) c.note = `${bruto} − RD ${rd} = ${liq} de dano líquido (aplique na ficha do jogador)`;
+    else {
+      const antes = c.vida; c.vida = applyStat('vida', c.vida - liq, c.vidaMax);
+      c.note = liq ? `${bruto} − RD ${rd} = ${liq} na Vida (${antes}→${c.vida})` : `${bruto} − RD ${rd}: a RD absorveu tudo`;
+    }
+    save(); render(); return;
+  }
 
   if (f.endsWith('Delta')) {                         // ±valor em Vida/BM
     const base = f.slice(0, -5), d = int(t.value, 0); t.value = '';
