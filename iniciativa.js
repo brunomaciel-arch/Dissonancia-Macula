@@ -7,6 +7,8 @@
      e modificador acompanham a ficha ao vivo, somente leitura).
    · Modo manual: tudo é digitado pelo Mestre, sem login nem campanha.
    · Oponentes são sempre editáveis à mão (inclusive as FA).
+   · RD (Traje): da ficha nos jogadores ligados; manual nos demais.
+   · Dado livre: mesma sintaxe da aba Perícias (ex.: 4d6+2).
    · Persistência: localStorage, uma lista por campanha + uma manual.
    ══════════════════════════════════════════════════════════════ */
 
@@ -35,7 +37,7 @@ let scope = 'manual';                           // 'manual' | 'camp'
 let st = null;                                  // { round, turnId, list: [...] }
 
 const keyOf = () => KEY + (scope === 'camp' && camp.code ? camp.code : 'manual');
-const blank = () => ({ round: 1, turnId: null, list: [] });
+const blank = () => ({ round: 1, turnId: null, list: [], rolls: [] });
 
 function load() {
   try {
@@ -49,7 +51,7 @@ function save() { try { localStorage.setItem(keyOf(), JSON.stringify(st)); } cat
 function mk(over = {}) {
   return {
     id: uid(), kind: 'op', name: 'Oponente', srcId: null, gone: false, out: false,
-    vida: 10, vidaMax: 10, bm: 0, bmMax: 0, fa: Array(FA_N).fill(false), mod: 0,
+    vida: 10, vidaMax: 10, bm: 0, bmMax: 0, rd: 0, fa: Array(FA_N).fill(false), mod: 0,
     init: null, dice: null, ...over,
   };
 }
@@ -62,7 +64,7 @@ function syncLinked() {
     if (!c.srcId) continue;
     const src = camp.chars.find(x => x.id === c.srcId);
     if (!src) { if (!c.gone) { c.gone = true; changed = true; } continue; }
-    const next = { name: src.name, vida: src.vida, vidaMax: src.vidaMax, bm: src.bm, bmMax: src.bmMax, fa: src.fa.slice(0, FA_N), mod: src.mod, gone: false };
+    const next = { name: src.name, vida: src.vida, vidaMax: src.vidaMax, bm: src.bm, bmMax: src.bmMax, rd: src.rd ?? 0, fa: src.fa.slice(0, FA_N), mod: src.mod, gone: false };
     for (const k in next) if (JSON.stringify(c[k]) !== JSON.stringify(next[k])) { c[k] = next[k]; changed = true; }
   }
   return changed;
@@ -103,18 +105,84 @@ function roll(c) {
   c.init = a + b + c.mod;
 }
 
+/* ── Dado livre (mesma sintaxe e limites da aba Perícias) ───── */
+function parseExpr(expr) {
+  const cleaned = String(expr).replace(/\s/g, '').toLowerCase();
+  if (!cleaned) return null;
+  const tokens = cleaned.match(/[+-]?[^+-]+/g);
+  if (!tokens) return null;
+  const dice = []; let bonus = 0;
+  for (const token of tokens) {
+    const dm = token.match(/^([+-]?)(\d+)d(\d+)$/);
+    if (dm) {
+      const sign = dm[1] === '-' ? -1 : 1, count = parseInt(dm[2], 10), sides = parseInt(dm[3], 10);
+      if (count < 1 || count > 100 || sides < 2 || sides > 1000) return null;
+      dice.push({ count, sides, sign });
+    } else {
+      const nm = token.match(/^([+-]?\d+)$/);
+      if (!nm) return null;
+      bonus += parseInt(nm[1], 10);
+    }
+  }
+  return dice.length ? { dice, bonus } : null;
+}
+
+function rollExpr(expr) {
+  const p = parseExpr(expr);
+  if (!p) return null;
+  const vals = []; let total = p.bonus;
+  for (const { count, sides, sign } of p.dice) {
+    for (let i = 0; i < count; i++) { const r = 1 + Math.floor(Math.random() * sides); vals.push(sign * r); total += sign * r; }
+  }
+  const label = p.dice.map((d, i) => `${d.sign < 0 ? '-' : (i ? '+' : '')}${d.count}d${d.sides}`).join('') + (p.bonus ? (p.bonus > 0 ? `+${p.bonus}` : `${p.bonus}`) : '');
+  return { label, vals, bonus: p.bonus, total };
+}
+
+function fmtRoll(r) {
+  const shown = r.vals.slice(0, 12).map((v, i) => (v < 0 ? `−${-v}` : (i ? `+${v}` : `${v}`))).join(' ');
+  return `${shown}${r.vals.length > 12 ? ' ···' : ''}${r.bonus ? ` ${r.bonus > 0 ? '+' : '−'}${Math.abs(r.bonus)}` : ''}`;
+}
+
+let errTimer = 0;
+function doFree() {
+  const inp = $('#if-input'), err = $('#if-err');
+  const r = rollExpr(inp.value);
+  if (!r) {
+    err.textContent = 'Formato inválido. Ex: 4d6+2  /  3d8+1';
+    clearTimeout(errTimer); errTimer = setTimeout(() => { err.textContent = ''; }, 3000);
+    return false;
+  }
+  err.textContent = '';
+  st.rolls = [{ label: r.label, detail: fmtRoll(r), total: r.total }, ...(st.rolls || [])].slice(0, 10);
+  return true;
+}
+
+function drawFree() {
+  const h = st.rolls || [];
+  $('#if-res').innerHTML = h.length
+    ? `<span class="ini-fres__label">${esc(h[0].label)}</span> <span class="ini-fres__det">${esc(h[0].detail)}</span> <span class="ini-fres__tot">= ${h[0].total}</span>`
+    : '<span class="ini-hint">Nenhuma rolagem ainda.</span>';
+  $('#if-hist').innerHTML = h.slice(1).map(x => `<span class="ini-hchip" title="${esc(x.detail)}">${esc(x.label)} = <b>${x.total}</b></span>`).join('');
+}
+
 /* ── Interface ──────────────────────────────────────────────── */
 const CSS = `
 .ini{max-width:1180px;width:97vw}.ini .modal__body{max-height:76vh;overflow:auto}
 .ini label{font-size:11px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px}
+.ini-free{border:1px solid var(--border-mid);border-radius:var(--radius-md);padding:8px 10px;margin-bottom:10px;display:grid;gap:6px}
+.ini-free__row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ini-free__row .field-input{width:190px}
+.ini-fres__label{color:var(--text-dim);font-size:12px}.ini-fres__det{color:var(--text-mid);font-size:12px}.ini-fres__tot{font-family:var(--font-display);font-size:22px;color:var(--gold);margin-left:4px}
+.ini-ferr{color:var(--red);font-size:12px;min-height:14px;margin:0}
+.ini-hist{display:flex;flex-wrap:wrap;gap:6px}.ini-hchip{font-size:11px;color:var(--text-dim);border:1px solid var(--border-mid);border-radius:10px;padding:1px 8px}.ini-hchip b{color:var(--text-bright)}
 .ini-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .ini-round{font-family:var(--font-display);font-size:20px;color:var(--gold);letter-spacing:.06em;margin:0 8px;font-variant-numeric:tabular-nums}
 .ini-sp{flex:1}
 .ini-add{border:1px dashed var(--border-mid);border-radius:var(--radius-md);padding:8px 10px;margin-bottom:12px;display:grid;gap:8px}
-.ini-form{display:grid;grid-template-columns:110px minmax(120px,2fr) repeat(4,minmax(64px,1fr)) auto;gap:8px;align-items:end}
+.ini-form{display:grid;grid-template-columns:110px minmax(120px,2fr) repeat(5,minmax(64px,1fr)) auto;gap:8px;align-items:end}
 .ini-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--text-dim)}
 .ini-hint{font-size:12px;color:var(--text-dim)}
-.ini-row{display:grid;grid-template-columns:22px 150px minmax(130px,1.3fr) minmax(150px,1fr) minmax(150px,1fr) 124px auto;gap:10px;align-items:center;
+.ini-row{display:grid;grid-template-columns:22px 150px minmax(130px,1.3fr) minmax(150px,1fr) minmax(150px,1fr) 62px 124px auto;gap:10px;align-items:center;
   padding:8px 10px;margin:6px 0;border:1px solid var(--border-mid);border-left:4px solid var(--magenta);border-radius:var(--radius-md);background:var(--bg-panel)}
 .ini-row.pj{border-left-color:var(--cyan)}
 .ini-row.turn{box-shadow:0 0 0 1px var(--gold),0 0 14px var(--gold-glow);background:var(--bg-card)}
@@ -136,6 +204,8 @@ const CSS = `
 .ini-delta{width:52px!important;padding:2px 4px!important;text-align:center;margin-left:auto}
 .ini-stat .agent-card__bar-track{width:100%}
 .ini-neg{color:var(--red)!important}
+.ini-rd{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-dim)}
+.ini-rd .ini-num{width:52px!important}
 .ini-fa{display:flex;gap:4px}
 .ini-hex{width:20px;height:22px;border:0;padding:0;cursor:pointer;background:var(--border-mid);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .ini-hex.on{background:var(--cyan);box-shadow:0 0 6px var(--cyan-glow)}
@@ -154,17 +224,29 @@ function mount() {
   root.innerHTML = `<div class="modal ini"><div class="modal__header"><h2 class="modal__title">⏱ Rastreador de Iniciativa</h2><button class="modal__close" data-x>✕</button></div>
   <div class="modal__body">
     <div class="ini-bar" id="ini-bar"></div>
+    <div class="ini-free">
+      <div class="ini-free__row"><label for="if-input">Dado livre</label>
+        <input class="field-input" id="if-input" type="text" placeholder="ex: 4d6+2  /  3d8+1" spellcheck="false">
+        <button class="btn btn--primary btn--sm" data-act="free">Rolar</button>
+        <span id="if-res"></span></div>
+      <p class="ini-ferr" id="if-err"></p>
+      <div class="ini-hist" id="if-hist"></div>
+    </div>
     <div class="ini-add" id="ini-add"></div>
     <div id="ini-list"></div>
   </div></div>`;
   document.body.append(root);
   root.addEventListener('click', onClick);
   root.addEventListener('change', onChange);
-  root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
+  root.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || !e.target.matches('input')) return;
+    if (e.target.id === 'if-input') { if (doFree()) { save(); drawFree(); } return; }
+    e.target.blur();
+  });
 }
 
 function render() {
-  drawBar(); drawAdd(); drawList();
+  drawBar(); drawFree(); drawAdd(); drawList();
 }
 
 function drawBar() {
@@ -183,7 +265,7 @@ function drawBar() {
 
 function drawAdd() {
   const keep = {};
-  ['kind', 'name', 'vida', 'bm', 'mod', 'qty'].forEach(k => { const el = $('#ia-' + k); if (el) keep[k] = el.value; });
+  ['kind', 'name', 'vida', 'bm', 'rd', 'mod', 'qty'].forEach(k => { const el = $('#ia-' + k); if (el) keep[k] = el.value; });
   const inList = new Set(st.list.map(c => c.srcId).filter(Boolean));
   const avail = scope === 'camp' ? camp.chars.filter(c => !inList.has(c.id)) : [];
   let chips;
@@ -198,6 +280,7 @@ function drawAdd() {
       <label>Nome<input class="field-input" id="ia-name" placeholder="Corrompido"></label>
       <label>Vida<input class="field-input" id="ia-vida" type="number" value="10"></label>
       <label>Barreira<input class="field-input" id="ia-bm" type="number" value="0"></label>
+      <label>RD<input class="field-input" id="ia-rd" type="number" min="0" value="0"></label>
       <label>Mod. inic.<input class="field-input" id="ia-mod" type="number" value="0"></label>
       <label>Qtd.<input class="field-input" id="ia-qty" type="number" min="1" max="20" value="1"></label>
       <button class="btn btn--primary btn--sm" data-act="add-man">Adicionar</button>
@@ -233,6 +316,7 @@ function drawList() {
         <small>${c.kind === 'pj' ? 'JOGADOR' : 'OPONENTE'} · mod ${ro ? sgn(c.mod) : `<input class="field-input ini-mod" type="number" data-id="${c.id}" data-f="mod" value="${c.mod}">`}</small>
         ${ro ? `<small>${c.gone ? 'ficha fora da campanha (última leitura)' : 'ficha ao vivo'}</small>` : ''}</div>
       ${statBlock(c, 'vida', 'VID', ro)}${statBlock(c, 'bm', 'BM', ro)}
+      <div class="ini-rd"><span title="Redução de Dano (Traje)">RD</span><input class="field-input ini-num" type="number" min="0" data-id="${c.id}" data-f="rd" value="${c.rd ?? 0}"${ro ? ' readonly' : ''}></div>
       <div class="ini-fa">${hex}</div>
       <div class="ini-ctl"><button class="btn btn--ghost btn--sm" data-act="out" data-id="${c.id}" title="Fora de combate (pula a vez)">${c.out ? '↩' : '☠'}</button>
         <button class="btn btn--ghost btn--sm" data-act="del" data-id="${c.id}" title="Remover">✕</button></div>
@@ -256,6 +340,7 @@ function onClick(e) {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, c = b.dataset.id ? get(b.dataset.id) : null;
   switch (act) {
+    case 'free': if (!doFree()) return; break;
     case 'next': step(1); break;
     case 'prev': step(-1); break;
     case 'roll': if (c) roll(c); break;
@@ -266,7 +351,7 @@ function onClick(e) {
       st.round = 1; st.turnId = null; st.list.forEach(x => { x.init = null; x.dice = null; }); break;
     case 'clear':
       if (!st.list.length || !confirm('Remover todos os combatentes desta lista?')) return;
-      st = blank(); break;
+      st = { ...blank(), rolls: st.rolls || [] }; break;
     case 'out': if (c) { c.out = !c.out; if (c.out && st.turnId === c.id) step(1); } break;
     case 'del':
       if (!c) return;
@@ -287,7 +372,7 @@ function onClick(e) {
     case 'add-man': {
       const v = id => $('#ia-' + id).value;
       const vida = Math.max(1, int(v('vida'), 10)), bm = Math.max(0, int(v('bm'), 0));
-      const base = { kind: v('kind'), name: (v('name') || '').trim() || (v('kind') === 'pj' ? 'Jogador' : 'Oponente'), vida, vidaMax: vida, bm, bmMax: bm, mod: int(v('mod'), 0) };
+      const base = { kind: v('kind'), name: (v('name') || '').trim() || (v('kind') === 'pj' ? 'Jogador' : 'Oponente'), vida, vidaMax: vida, bm, bmMax: bm, rd: Math.max(0, int(v('rd'), 0)), mod: int(v('mod'), 0) };
       addMany(base, clamp(int(v('qty'), 1), 1, 20)); break;
     }
     default: return;
@@ -309,6 +394,7 @@ function onChange(e) {
   } else if (f === 'name') c.name = t.value.trim() || c.name;
   else if (f === 'init') { c.init = t.value === '' ? null : int(t.value); c.dice = null; }
   else if (f === 'mod') c.mod = int(t.value, 0);
+  else if (f === 'rd') c.rd = Math.max(0, int(t.value, c.rd ?? 0));
   else if (f === 'vida' || f === 'bm') c[f] = applyStat(f, int(t.value, c[f]), c[f + 'Max']);
   else if (f === 'vidaMax' || f === 'bmMax') {
     const base = f.slice(0, -3); c[f] = Math.max(0, int(t.value, c[f]));
