@@ -184,6 +184,18 @@ Botão **👤 Conta** na central de personagens. Funciona com **e-mail e senha**
 
 ---
 
+## Forja de Ameaças (Modo Mestre)
+
+Botão **☠ Forja de Ameaças** no cabeçalho do Modo Mestre. Informe o número de PJs, o nível do grupo (por PD), a dificuldade (Fácil, Normal, Difícil, Mortal), a quantidade de ameaças e o tipo (Criatura Corrompida, Animal, Humano ou Adversário). A Forja distribui as ameaças entre as patentes (Incômodo, Perigo, Formidável, Imponente, Sublime) para fechar o orçamento de PA da dificuldade e sorteia uma ficha individual para cada ameaça.
+
+- **Orçamento:** 1,25 × PJs (Fácil), 2 × (Normal), 3 × (Difícil) e 4 × (Mortal), com um fator quando a patente está acima ou abaixo do nível do grupo.
+- **Fichas sorteadas:** os atributos variam por transferências de pontos dentro dos limites da patente, e só vale a ficha cujo poder (dano × resistência) fica a ±10% do valor da patente. Cada ficha mostra o seu poder e traz Vida, RD ou Barreira, Acerto, Dano, Reação, Fontes de Ação, ND de Execução e PA.
+- **Criaturas Corrompidas e Animais / Humanos** usam o mesmo bloco de três atributos (Fúria, Carne, Instinto). **Adversários** são fichas de PJ.
+- **Avançado:** uma lista manual de inimigos por patente calcula a dificuldade real.
+- A configuração fica salva só neste navegador (`dm_forja_ameacas`). A Forja não altera nenhuma ficha.
+
+---
+
 ## Persistência de Dados
  
 Todos os dados são salvos automaticamente no `localStorage` do navegador a cada alteração. Nada é enviado para a internet, exceto as mensagens de webhook do Discord (quando configurado) e as fichas que você escolher vincular a uma campanha.
