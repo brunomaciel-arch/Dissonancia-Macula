@@ -3,7 +3,7 @@
    Entry Point: inicializa e conecta todos os módulos.
    ══════════════════════════════════════════════════════ */
 
-import { renderRoster, bindRosterEvents, bindSheetEvents, showView } from './ui.js';
+import { renderRoster, bindRosterEvents, bindSheetEvents, showView, reduzirFotosPesadas } from './ui.js';
 import { bindSkillRolls } from './dice.js';
 import { getTheme, applyTheme } from './state.js';
 
@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5. Conectar rolagem de dados em todas as .skill-row
   bindSkillRolls();
+
+  // 5b. Fotos antigas muito pesadas são reduzidas em segundo plano (liberam espaço no navegador)
+  reduzirFotosPesadas().then(() => renderRoster()).catch(e => console.warn('[Fotos]', e));
 
   // 6. Prevenir perda acidental ao fechar a aba com ficha aberta
   window.addEventListener('beforeunload', (e) => {
