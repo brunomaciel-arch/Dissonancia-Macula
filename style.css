@@ -2913,25 +2913,30 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 .weapon-row {
   display: grid;
-  /* nome | ATAQUE (tag, atributo, bônus, dado) | DANO (tag, atributo, bônus, dado) */
-  grid-template-columns: 1fr auto auto auto 36px auto auto auto 36px;
+  /* [nome + atributo] | ATAQUE (tag, bônus, dado) | DANO (tag, bônus, dado) */
+  grid-template-columns: 1fr auto auto 36px auto auto 36px;
   align-items: center;
   column-gap: 8px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   transition: background var(--transition);
 }
+.weapon-head {
+  grid-column: 1; grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.weapon-head .weapon-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Desktop: as linhas de Ataque e Dano "somem" e suas células entram na grade da arma, lado a lado */
 .weapon-line { display: contents; }
-.weapon-name { grid-column: 1; grid-row: 1; }
 .weapon-line--attack > :nth-child(1) { grid-row: 1; grid-column: 2; }
 .weapon-line--attack > :nth-child(2) { grid-row: 1; grid-column: 3; }
 .weapon-line--attack > :nth-child(3) { grid-row: 1; grid-column: 4; }
-.weapon-line--attack > :nth-child(4) { grid-row: 1; grid-column: 5; }
-.weapon-line--damage > :nth-child(1) { grid-row: 1; grid-column: 6; margin-left: 18px; }
-.weapon-line--damage > :nth-child(2) { grid-row: 1; grid-column: 7; }
-.weapon-line--damage > :nth-child(3) { grid-row: 1; grid-column: 8; }
-.weapon-line--damage > :nth-child(4) { grid-row: 1; grid-column: 9; }
+.weapon-line--damage > :nth-child(1) { grid-row: 1; grid-column: 5; margin-left: 18px; }
+.weapon-line--damage > :nth-child(2) { grid-row: 1; grid-column: 6; }
+.weapon-line--damage > :nth-child(3) { grid-row: 1; grid-column: 7; }
 .weapon-tag { text-align: center; min-width: 100px; box-sizing: border-box; }
 .weapon-tag small {
   font-size: 0.58rem;
@@ -3029,7 +3034,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
     gap: 6px;
     padding: 10px 12px;
   }
-  .weapon-name { grid-row: auto; grid-column: auto; }
+  .weapon-head { grid-row: auto; grid-column: auto; }
   .weapon-line > * { margin-left: 0 !important; }
   .weapon-line {
     display: flex;
