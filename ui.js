@@ -15,6 +15,8 @@ import {
 } from './account.js';
 import { initMaster, openMaster } from './master.js';
 import { openForja } from './forja.js';
+import { initDesenvolvimento, renderDesenvolvimento } from './desenvolvimento.js';
+import { calcProgressao, somarDadosBase } from './regras-dev.js';
 import {
   loadAllAgents, createAgent, deleteAgent,
   openAgent, getActiveAgent, setField,
@@ -27,7 +29,7 @@ import {
   addConsumable, updateConsumableField, stepConsumableQty, removeConsumable,
   addAbility, updateAbilityField, removeAbility,
   addNote, updateNoteField, removeNote,
-  stepDev, setPhotoOffset,
+  setPhotoOffset,
   clearRollHistory,
   getTheme, setTheme,
   getFormaOptions, getMarketOptions, normalizeWeaponWeight,
@@ -138,6 +140,39 @@ export function openSheet(id) {
 export function closeSheet() { detachCampaign(); showView('roster'); renderRoster(); }
 
 /** Re-renderiza o que uma concessão do mestre pode ter alterado. */
+/** Atualiza tudo o que depende de PD, atributos e Vida depois de uma compra de Desenvolvimento. */
+function refreshAfterDev() {
+  const agent = getActiveAgent();
+  if (!agent) return;
+  populateTab1(agent);   // atributos, Vida, Barreira, FA e o próprio cartão de Desenvolvimento
+  populateTab2(agent);   // perícias e Iniciativa
+  renderWeapons(agent);  // dados de dano base (+1 a cada 10 PD)
+  updateSummary(agent);
+}
+
+/**
+ * Fontes de Ação: base 2 + bônus de Progressão (+1 em 6 PD e +1 em 20 PD).
+ * O hexágono seguinte é o "extra de Fluidez" (só vale no turno em que ocorre);
+ * os demais ficam bloqueados. Máximo absoluto de 5 (pág. 44 e 46).
+ */
+function applyActionSourceCapacity(agent) {
+  const { faNormais } = calcProgressao(agent);
+  const pips = $$('#hex-group .hex-pip');
+  let mudou = false;
+  pips.forEach((h, i) => {
+    const bloqueado = i > faNormais;
+    h.disabled = bloqueado;
+    h.classList.toggle('hex-pip--locked', bloqueado);
+    h.classList.toggle('hex-pip--fluidez', i === faNormais);
+    h.title = bloqueado ? `Bloqueada: você tem ${faNormais} FA por turno (+1 com Fluidez)`
+            : i === faNormais ? `FA extra de Fluidez (vale só no turno em que ocorre)`
+            : `Fonte de Ação ${i + 1}`;
+    if (bloqueado && agent.actionSources[i]) { agent.actionSources[i] = false; mudou = true; }
+    h.classList.toggle('active', agent.actionSources[i] === true);
+  });
+  if (mudou) setField('actionSources', [...agent.actionSources]);
+}
+
 function refreshAfterGrant() {
   const agent = getActiveAgent();
   if (!agent) return;
@@ -272,14 +307,9 @@ function populateTab1(agent) {
   const condEl = $('#active-conditions');
   if (condEl) condEl.value = agent.activeConditions ?? '';
 
-  // Desenvolvimento
-  const devMap = { devAprendizado: ['dev-aprendizado','dev-bar-aprendizado',5], devDesenvolvimento: ['dev-desenvolvimento','dev-bar-desenvolvimento',30], devPotencial: ['dev-potencial','dev-bar-potencial',10] };
-  Object.entries(devMap).forEach(([field, [valId, barId, max]]) => {
-    const v = agent[field] ?? 0;
-    const el = $(`#${valId}`); const b = $(`#${barId}`);
-    if (el) el.textContent = v;
-    if (b)  b.style.width  = `${(v / max) * 100}%`;
-  });
+  // Desenvolvimento (PD, Potencial Latente, Bônus de Progressão) e assistente de atributos
+  renderDesenvolvimento(agent);
+  applyActionSourceCapacity(agent);
 }
 
 function updateVidaBar(agent) {
@@ -450,6 +480,13 @@ export function renderWeapons(agent) {
     // Um único atributo por arma: vale para o Ataque e para o Dano
     const attr = ATTRS.includes(item.weaponAttr) ? item.weaponAttr : 'fis';
 
+    // Bônus de Progressão: +1 Dado de Dano base a cada 10 PD
+    const dadosExtra = calcProgressao(agent).dadosDanoExtra;
+    const danoEfetivo = somarDadosBase(item.damage, dadosExtra);
+    const danoTitulo = dadosExtra > 0
+      ? `Dano da arma: ${item.damage} base +${dadosExtra} dado(s) de Progressão + atributo + bônus extra`
+      : 'Dano da arma + atributo + bônus extra';
+
     row.innerHTML = `
       <div class="weapon-head">
         <span class="weapon-name">${esc(item.name || '—')}</span>
@@ -462,7 +499,7 @@ export function renderWeapons(agent) {
         <button class="weapon-roll-btn weapon-attack-btn" title="Rolar ataque">🎲</button>
       </div>
       <div class="weapon-line weapon-line--damage">
-        <span class="weapon-damage weapon-tag" title="Dano da arma + atributo + bônus extra"><small>DANO</small> ${esc(item.damage)}</span>
+        <span class="weapon-damage weapon-tag" title="${esc(danoTitulo)}"><small>DANO</small> ${esc(danoEfetivo)}</span>
         <input class="weapon-bonus-input weapon-damage-bonus" type="number" value="${item.weaponBonus ?? 0}"
                title="Bônus extra do dano" placeholder="+0" />
         <button class="weapon-roll-btn weapon-damage-btn" title="Rolar dano">🎲</button>
@@ -491,7 +528,7 @@ export function renderWeapons(agent) {
     // Rolar dano: dano da arma + atributo + bônus extra
     dmgBtn.addEventListener('click', () => {
       const bonus = parseInt(dmgInp.value, 10) || 0;
-      rollWeapon(`${item.name || 'Arma'} — Dano`, item.damage, attrValue(), attrSel.value.toUpperCase(), bonus);
+      rollWeapon(`${item.name || 'Arma'} — Dano`, danoEfetivo, attrValue(), attrSel.value.toUpperCase(), bonus);
     });
 
     list.appendChild(row);
@@ -1042,6 +1079,9 @@ function bindExportModal() {
 ════════════════════════════════════ */
 export function bindSheetEvents() {
 
+  // Desenvolvimento: gasto de PD, Potencial Latente, distribuição inicial e Bônus de Progressão
+  initDesenvolvimento({ toast: showToast, onChange: refreshAfterDev });
+
   // Tabs
   $$('.tab').forEach(t => t.addEventListener('click', () => activateTab(Number(t.dataset.tab))));
 
@@ -1100,6 +1140,7 @@ export function bindSheetEvents() {
       }
       updateSummary(agent);
       populateTab2(agent);
+      renderDesenvolvimento(agent);
     });
   });
 
@@ -1162,22 +1203,6 @@ export function bindSheetEvents() {
     });
   });
 
-  // ── Steppers Desenvolvimento ──
-  $$('[data-dev-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const field = btn.dataset.devField;
-      const dir   = btn.dataset.devAction;
-      stepDev(field, dir);
-      const agent = getActiveAgent();
-      const limits = { devAprendizado:5, devDesenvolvimento:30, devPotencial:10 };
-      const idMap  = { devAprendizado:'dev-aprendizado', devDesenvolvimento:'dev-desenvolvimento', devPotencial:'dev-potencial' };
-      const barMap = { devAprendizado:'dev-bar-aprendizado', devDesenvolvimento:'dev-bar-desenvolvimento', devPotencial:'dev-bar-potencial' };
-      const v = agent[field] ?? 0;
-      $(`#${idMap[field]}`).textContent   = v;
-      $(`#${barMap[field]}`).style.width  = `${(v/limits[field])*100}%`;
-    });
-  });
-
   // ── Contadores Arsenal ──
   $$('.counter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1205,6 +1230,7 @@ export function bindSheetEvents() {
   // ── Hexágonos Fontes de Ação ──
   $$('#hex-group .hex-pip').forEach(h => {
     h.addEventListener('click', () => {
+      if (h.disabled) return;
       pressActionSource(Number(h.dataset.index));
       const states = getActiveAgent().actionSources;
       $$('#hex-group .hex-pip').forEach((el, i) => el.classList.toggle('active', states[i] === true));
