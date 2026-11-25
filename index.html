@@ -239,6 +239,7 @@
             <div class="attr-bar-mini"><div class="attr-bar-fill" id="attr-bar-fis"></div></div>
           </div>
         </div>
+        <div id="dist-root"></div>
       </div>
 
       <!-- Status Vitais -->
@@ -364,42 +365,7 @@
       <!-- Desenvolvimento (largura total, abaixo dos dois cards) -->
       <div class="panel-card panel-card--full">
         <h2 class="panel-card__title">Desenvolvimento</h2>
-        <div class="dev-counters">
-
-          <div class="dev-counter">
-            <p class="dev-counter__label">Aprendizado</p>
-            <p class="dev-counter__range">0 – 5</p>
-            <div class="dev-stepper">
-              <button class="stepper-btn" data-dev-action="dec" data-dev-field="devAprendizado">−</button>
-              <span class="stepper-val" id="dev-aprendizado">0</span>
-              <button class="stepper-btn" data-dev-action="inc" data-dev-field="devAprendizado">+</button>
-            </div>
-            <div class="dev-bar-track"><div class="dev-bar-fill dev-bar-fill--cyan" id="dev-bar-aprendizado"></div></div>
-          </div>
-
-          <div class="dev-counter">
-            <p class="dev-counter__label">Desenvolvimento</p>
-            <p class="dev-counter__range">0 – 30</p>
-            <div class="dev-stepper">
-              <button class="stepper-btn" data-dev-action="dec" data-dev-field="devDesenvolvimento">−</button>
-              <span class="stepper-val" id="dev-desenvolvimento">0</span>
-              <button class="stepper-btn" data-dev-action="inc" data-dev-field="devDesenvolvimento">+</button>
-            </div>
-            <div class="dev-bar-track"><div class="dev-bar-fill dev-bar-fill--gold" id="dev-bar-desenvolvimento"></div></div>
-          </div>
-
-          <div class="dev-counter">
-            <p class="dev-counter__label">Potencial Latente</p>
-            <p class="dev-counter__range">0 – 10</p>
-            <div class="dev-stepper">
-              <button class="stepper-btn" data-dev-action="dec" data-dev-field="devPotencial">−</button>
-              <span class="stepper-val" id="dev-potencial">0</span>
-              <button class="stepper-btn" data-dev-action="inc" data-dev-field="devPotencial">+</button>
-            </div>
-            <div class="dev-bar-track"><div class="dev-bar-fill dev-bar-fill--magenta" id="dev-bar-potencial"></div></div>
-          </div>
-
-        </div>
+        <div id="dev-root"></div>
       </div>
 
     </div><!-- /.status-layout -->
