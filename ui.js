@@ -3,7 +3,7 @@
    ══════════════════════════════════════════════════════ */
 
 import { sendStatus, sendTest } from './webhook.js';
-import { rollWeapon, rollInitiative } from './dice.js';
+import { rollWeapon, rollAttack, rollInitiative } from './dice.js';
 import {
   initCampaign, attachCampaign, detachCampaign, connectCampaign, disconnectCampaign,
   releaseCampaign, getAccountLabel, onCampaignStatus, getCampaignStatus,
@@ -437,45 +437,66 @@ export function renderWeapons(agent) {
   }
   if (empty) empty.style.display = 'none';
 
+  const ATTRS = ['fis','ins','raz','pre','prs'];
+  const attrOptions = sel => ATTRS
+    .map(a => `<option value="${a}" ${sel===a?'selected':''}>${a.toUpperCase()}</option>`)
+    .join('');
+
   weapons.forEach(item => {
     const row = document.createElement('div');
     row.className = 'weapon-row';
     row.dataset.equipId = item.id;
 
-    const attrOpts = ['fis','ins','raz','pre','prs']
-      .map(a => `<option value="${a}" ${(item.weaponAttr||'fis')===a?'selected':''}>${a.toUpperCase()}</option>`)
-      .join('');
+    const atkAttr = ATTRS.includes(item.attackAttr) ? item.attackAttr : (item.weaponAttr || 'fis');
+    const dmgAttr = item.weaponAttr || 'fis';
 
     row.innerHTML = `
       <span class="weapon-name">${esc(item.name || '—')}</span>
-      <span class="weapon-damage">${esc(item.damage)}</span>
-      <select class="weapon-attr-select" title="Atributo base">${attrOpts}</select>
-      <input class="weapon-bonus-input" type="number" value="${item.weaponBonus ?? 0}"
-             title="Bônus extra" placeholder="+0" />
-      <button class="weapon-roll-btn" title="Rolar dano">🎲</button>
+      <div class="weapon-line weapon-line--attack">
+        <span class="weapon-damage weapon-tag" title="Ataque: 2d10 + atributo + bônus extra"><small>ATQ</small> 2d10</span>
+        <select class="weapon-attr-select weapon-attack-attr" title="Atributo do ataque">${attrOptions(atkAttr)}</select>
+        <input class="weapon-bonus-input weapon-attack-bonus" type="number" value="${item.attackBonus ?? 0}"
+               title="Bônus extra do ataque" placeholder="+0" />
+        <button class="weapon-roll-btn weapon-attack-btn" title="Rolar ataque">🎲</button>
+      </div>
+      <div class="weapon-line weapon-line--damage">
+        <span class="weapon-damage weapon-tag" title="Dano da arma"><small>DANO</small> ${esc(item.damage)}</span>
+        <select class="weapon-attr-select weapon-damage-attr" title="Atributo do dano">${attrOptions(dmgAttr)}</select>
+        <input class="weapon-bonus-input weapon-damage-bonus" type="number" value="${item.weaponBonus ?? 0}"
+               title="Bônus extra do dano" placeholder="+0" />
+        <button class="weapon-roll-btn weapon-damage-btn" title="Rolar dano">🎲</button>
+      </div>
     `;
 
-    const attrSel   = row.querySelector('.weapon-attr-select');
-    const bonusInp  = row.querySelector('.weapon-bonus-input');
-    const rollBtn   = row.querySelector('.weapon-roll-btn');
+    const atkSel  = row.querySelector('.weapon-attack-attr');
+    const atkInp  = row.querySelector('.weapon-attack-bonus');
+    const atkBtn  = row.querySelector('.weapon-attack-btn');
+    const dmgSel  = row.querySelector('.weapon-damage-attr');
+    const dmgInp  = row.querySelector('.weapon-damage-bonus');
+    const dmgBtn  = row.querySelector('.weapon-damage-btn');
 
-    // Salvar attr escolhido
-    attrSel.addEventListener('change', () => {
-      updateEquipmentField(item.id, 'weaponAttr', attrSel.value);
-    });
+    // Salvar atributo e bônus (ataque e dano são independentes)
+    atkSel.addEventListener('change', () => updateEquipmentField(item.id, 'attackAttr', atkSel.value));
+    atkInp.addEventListener('change', () => updateEquipmentField(item.id, 'attackBonus', parseInt(atkInp.value, 10) || 0));
+    dmgSel.addEventListener('change', () => updateEquipmentField(item.id, 'weaponAttr', dmgSel.value));
+    dmgInp.addEventListener('change', () => updateEquipmentField(item.id, 'weaponBonus', parseInt(dmgInp.value, 10) || 0));
 
-    // Salvar bônus extra
-    bonusInp.addEventListener('change', () => {
-      updateEquipmentField(item.id, 'weaponBonus', parseInt(bonusInp.value, 10) || 0);
+    // Rolar ataque: 2d10 + atributo + bônus extra
+    atkBtn.addEventListener('click', () => {
+      const agent     = getActiveAgent();
+      const attrKey   = atkSel.value;
+      const attrValue = agent?.attrs[attrKey] ?? 0;
+      const bonus     = parseInt(atkInp.value, 10) || 0;
+      rollAttack(item.name || 'Arma', attrValue, attrKey.toUpperCase(), bonus);
     });
 
     // Rolar dano
-    rollBtn.addEventListener('click', () => {
+    dmgBtn.addEventListener('click', () => {
       const agent     = getActiveAgent();
-      const attrKey   = attrSel.value;
+      const attrKey   = dmgSel.value;
       const attrValue = agent?.attrs[attrKey] ?? 0;
-      const bonus     = parseInt(bonusInp.value, 10) || 0;
-      rollWeapon(item.name || 'Dano', item.damage, attrValue, attrKey.toUpperCase(), bonus);
+      const bonus     = parseInt(dmgInp.value, 10) || 0;
+      rollWeapon(`${item.name || 'Arma'} — Dano`, item.damage, attrValue, attrKey.toUpperCase(), bonus);
     });
 
     list.appendChild(row);
