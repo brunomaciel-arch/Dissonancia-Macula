@@ -173,8 +173,7 @@ function info() {
     name: (S.nm || 'Arma sem nome').slice(0, 80), description: desc.slice(0, 500), market: LV[g],
     damage: c.d, range: (r + (has('arr') ? ' (arremesso: Curta)' : '')).slice(0, 60),
     modules: modl.join(', ').slice(0, 200), price: p + ' CDU', qty: 1,
-    weaponWeight: (pw >= 0 ? '+' : '') + pw, weaponAttr: at === 'Precisão' ? 'pre' : 'fis', weaponBonus: S.prof ? 1 : 0,
-    attackAttr: at === 'Precisão' ? 'pre' : 'fis', attackBonus: 0,
+    weaponWeight: (pw >= 0 ? '+' : '') + pw, weaponAttr: at === 'Precisão' ? 'pre' : 'fis', weaponBonus: S.prof ? 1 : 0, attackBonus: 0,
   };
   return { rows, mods, nt, g, p, lv: LVN[g], item };
 }
@@ -352,7 +351,7 @@ function onClick(e) {
  * Abre a Forja.
  * @param {{mode?:'player'|'master', onUse?:(item:object)=>void, useLabel?:string, toast?:Function}} opts
  *   onUse recebe um item no formato do Arsenal: name, description, market (A|R|N/M), damage, range,
- *   modules, price, qty, weaponWeight, weaponAttr, weaponBonus, attackAttr, attackBonus.
+ *   modules, price, qty, weaponWeight, weaponAttr (atributo único de ataque e dano), weaponBonus (dano), attackBonus (ataque).
  */
 export function openForja(opts = {}) {
   mount();
