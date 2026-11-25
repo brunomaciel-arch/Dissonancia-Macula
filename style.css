@@ -2914,11 +2914,31 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .weapon-row {
   display: grid;
   grid-template-columns: 1fr auto auto auto 36px;
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
+  row-gap: 6px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   transition: background var(--transition);
+}
+/* Desktop: as linhas de Ataque e Dano "somem" e suas células entram na grade da arma */
+.weapon-line { display: contents; }
+.weapon-name { grid-column: 1; grid-row: 1 / span 2; }
+.weapon-line--attack > :nth-child(1) { grid-row: 1; grid-column: 2; }
+.weapon-line--attack > :nth-child(2) { grid-row: 1; grid-column: 3; }
+.weapon-line--attack > :nth-child(3) { grid-row: 1; grid-column: 4; }
+.weapon-line--attack > :nth-child(4) { grid-row: 1; grid-column: 5; }
+.weapon-line--damage > :nth-child(1) { grid-row: 2; grid-column: 2; }
+.weapon-line--damage > :nth-child(2) { grid-row: 2; grid-column: 3; }
+.weapon-line--damage > :nth-child(3) { grid-row: 2; grid-column: 4; }
+.weapon-line--damage > :nth-child(4) { grid-row: 2; grid-column: 5; }
+.weapon-tag { text-align: center; }
+.weapon-tag small {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-right: 4px;
 }
 .weapon-row:last-child { border-bottom: none; }
 .weapon-row:hover { background: rgba(255, 214, 0, 0.04); }
@@ -3004,17 +3024,21 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 @media (max-width: 600px) {
   .weapon-row {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     gap: 6px;
     padding: 10px 12px;
   }
-  .weapon-name   { grid-column: 1; grid-row: 1; }
-  .weapon-roll-btn { grid-column: 2; grid-row: 1 / 3; }
-  .weapon-damage { grid-column: 1; grid-row: 2; }
-  .weapon-attr-select { grid-column: 1; grid-row: 3; }
-  .weapon-bonus-input { grid-column: 1; grid-row: 4; width: 100%; }
-  .weapon-row { grid-template-columns: 1fr 40px; grid-template-rows: auto auto auto auto; }
+  .weapon-name { grid-row: auto; grid-column: auto; }
+  .weapon-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .weapon-line > * { grid-row: auto !important; grid-column: auto !important; }
+  .weapon-line .weapon-tag { min-width: 74px; }
+  .weapon-line .weapon-bonus-input { flex: 1; width: auto; min-width: 0; }
 }
 
 /* ══════════════════════════════════════════════════════
