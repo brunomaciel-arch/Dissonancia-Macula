@@ -29,7 +29,7 @@ import {
   addConsumable, updateConsumableField, stepConsumableQty, removeConsumable,
   addAbility, updateAbilityField, removeAbility,
   addNote, updateNoteField, removeNote,
-  setPhotoOffset,
+  setPhotoOffset, setPhoto, setSaveErrorListener, replaceAllAgentsSilently,
   clearRollHistory,
   getTheme, setTheme,
   getFormaOptions, getMarketOptions, normalizeWeaponWeight,
@@ -1079,6 +1079,14 @@ function bindExportModal() {
 ════════════════════════════════════ */
 export function bindSheetEvents() {
 
+  // Aviso quando o navegador recusa uma gravação (antes o erro era engolido em silêncio)
+  let _ultimoAvisoSalvar = 0;
+  setSaveErrorListener(() => {
+    if (Date.now() - _ultimoAvisoSalvar < 8000) return;
+    _ultimoAvisoSalvar = Date.now();
+    showToast('Armazenamento do navegador cheio: as últimas alterações NÃO foram salvas. Apague fichas ou fotos antigas.', 'error');
+  });
+
   // Desenvolvimento: gasto de PD, Potencial Latente, distribuição inicial e Bônus de Progressão
   initDesenvolvimento({ toast: showToast, onChange: refreshAfterDev });
 
@@ -1635,37 +1643,115 @@ function bindConfigModal() {
   });
 }
 
-function handlePhotoUpload(e) {
+/* ── Foto do personagem ──
+   Fotos de celular têm vários MB e estouram o limite do localStorage (~5 MB para
+   TODAS as fichas juntas): o navegador recusava a gravação e a foto sumia ao sair
+   da ficha. Por isso a imagem é reduzida antes de salvar, e a tela só mostra a foto
+   depois que a gravação realmente funcionou. */
+const FOTO_TENTATIVAS = [[1000, 0.85], [700, 0.75], [450, 0.7]];   // [lado máximo px, qualidade JPEG]
+const FOTO_LEVE = 300_000;                                          // já é leve: mantém como está
+
+function lerArquivoComoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+/** Reduz uma imagem (data URL) para JPEG com no máximo `lado` px. Devolve '' se não conseguir decodificar. */
+function reduzirImagem(dataUrl, lado, qualidade) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width  = Math.max(1, Math.round(img.naturalWidth  * k));
+        c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#0b1426';            // fundo para PNG/WebP com transparência
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', qualidade));
+      } catch { resolve(''); }
+    };
+    img.onerror = () => resolve('');
+    img.src = dataUrl;
+  });
+}
+
+async function handlePhotoUpload(e) {
   const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const b64         = ev.target.result;
-    const photo       = $('#agent-photo');
-    const wrapper     = $('#photo-wrapper');
-    const placeholder = $('#photo-placeholder');
-
-    setField('photo', b64);
-    setPhotoOffset(50, 50, 1);
-
-    photo.src                  = b64;
-    photo.style.objectPosition = '50% 50%';
-    photo.style.transform      = 'scale(1)';
-    photo.style.transformOrigin= '50% 50%';
-    photo.style.display        = 'block';
-    wrapper.classList.add('has-photo');
-    wrapper.classList.remove('move-active');
-    if (placeholder) placeholder.style.display = 'none';
-
-    const zoomInput = $('#photo-zoom-input');
-    const zoomLabel = $('#photo-zoom-label');
-    if (zoomInput) zoomInput.value = 1;
-    if (zoomLabel) zoomLabel.textContent = 'zoom 1.0×';
-
-    showToast('Foto atualizada!', 'success');
-  };
-  reader.readAsDataURL(file);
   e.target.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Escolha um arquivo de imagem (JPG, PNG ou WebP).', 'error'); return; }
+
+  let original;
+  try { original = await lerArquivoComoDataUrl(file); }
+  catch { showToast('Não foi possível ler o arquivo.', 'error'); return; }
+
+  // candidatos do melhor para o mais leve; o primeiro que o navegador aceitar gravar vale
+  const candidatos = [];
+  if (original.length <= FOTO_LEVE) candidatos.push(() => original);
+  for (const [lado, q] of FOTO_TENTATIVAS) candidatos.push(() => reduzirImagem(original, lado, q));
+
+  let b64 = '', decodificou = false;
+  for (const gerar of candidatos) {
+    const cand = await gerar();
+    if (!cand) continue;
+    decodificou = true;
+    if (setPhoto(cand)) { b64 = cand; break; }
+  }
+
+  if (!b64) {
+    showToast(decodificou
+      ? 'Não foi possível salvar a foto: o armazenamento do navegador está cheio. Apague fichas ou fotos antigas e tente de novo.'
+      : 'Não foi possível abrir essa imagem. Tente um arquivo JPG, PNG ou WebP.', 'error');
+    return;
+  }
+
+  const photo       = $('#agent-photo');
+  const wrapper     = $('#photo-wrapper');
+  const placeholder = $('#photo-placeholder');
+
+  photo.src                  = b64;
+  photo.style.objectPosition = '50% 50%';
+  photo.style.transform      = 'scale(1)';
+  photo.style.transformOrigin= '50% 50%';
+  photo.style.display        = 'block';
+  wrapper.classList.add('has-photo');
+  wrapper.classList.remove('move-active');
+  if (placeholder) placeholder.style.display = 'none';
+
+  const zoomInput = $('#photo-zoom-input');
+  const zoomLabel = $('#photo-zoom-label');
+  if (zoomInput) zoomInput.value = 1;
+  if (zoomLabel) zoomLabel.textContent = 'zoom 1.0×';
+
+  showToast('Foto atualizada!', 'success');
+}
+
+/**
+ * Fotos grandes que já estavam guardadas (de versões antigas) ocupam o limite do
+ * navegador e fazem outras gravações falharem. Reduz as pesadas em segundo plano.
+ */
+export async function reduzirFotosPesadas() {
+  const PESADA = 600_000;
+  const ids = loadAllAgents().filter(a => a.photo && a.photo.length > PESADA).map(a => a.id);
+  for (const id of ids) {
+    if (getActiveAgent()?.id === id) continue;               // não mexe na ficha aberta
+    const atual = loadAllAgents().find(a => a.id === id);
+    if (!atual?.photo) continue;
+    const menor = await reduzirImagem(atual.photo, FOTO_TENTATIVAS[0][0], FOTO_TENTATIVAS[0][1]);
+    if (!menor || menor.length >= atual.photo.length) continue;
+    const todos = loadAllAgents();                            // lê de novo: pode ter mudado durante a espera
+    const i = todos.findIndex(a => a.id === id);
+    if (i === -1 || todos[i].photo !== atual.photo) continue;
+    todos[i] = { ...todos[i], photo: menor };
+    replaceAllAgentsSilently(todos);
+  }
 }
 
 /* Toggle modo mover (ativa/desativa drag + zoom) */
