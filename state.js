@@ -77,7 +77,7 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
 }
 
 function createEquipmentItem() {
-  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', modules: '' };
+  return { id: generateId(), name: '', description: '', market: '', damage: '', range: '', price: '', qty: 1, weaponAttr: 'fis', weaponBonus: 0, attackAttr: 'fis', attackBonus: 0, weaponWeight: '+0', modules: '' };
 }
 
 function createVehicleItem() {
@@ -115,7 +115,9 @@ function mergeWithDefaults(agent) {
   merged.actionSources = Array.isArray(agent.actionSources) ? agent.actionSources : defaults.actionSources;
   merged.equipment  = Array.isArray(agent.equipment)
     ? agent.equipment.map(e => {
-        const item = { weaponAttr: 'fis', weaponBonus: 0, weaponWeight: '+0', modules: '', ...e };
+        const item = { weaponAttr: 'fis', weaponBonus: 0, attackBonus: 0, weaponWeight: '+0', modules: '', ...e };
+        // Ataque (2d10 + atributo): fichas antigas não têm atributo de ataque — herdam o do dano
+        if (!['fis','ins','raz','pre','prs'].includes(item.attackAttr)) item.attackAttr = item.weaponAttr || 'fis';
         item.weaponWeight = normalizeWeaponWeight(item.weaponWeight);
         // Mercado: variações conhecidas ("a", "Aberto"…) viram o código; texto desconhecido é preservado
         item.market = normalizeMarket(item.market) || String(item.market ?? '');
