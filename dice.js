@@ -227,6 +227,55 @@ export function rollWeapon(itemName, damageExpr, attrValue, attrName, extraBonus
   _rolling = false;
 }
 
+/* ══ ROLAGEM DE ATAQUE DA ARMA ══
+   2d10 + atributo escolhido + bônus extra (+ Bônus do painel, como nas perícias).
+   Usa as mesmas qualidades de rolagem das perícias (Axioma, Absurdo, Fluidez, Atrito). */
+export function rollAttack(itemName, attrValue, attrName, extraBonus) {
+  if (_rolling) return;
+  _rolling = true;
+
+  const label      = `${itemName} — Ataque`;
+  const panelBonus = getBonusValue();
+  const mod        = attrValue + extraBonus;
+
+  if (elSkill())   elSkill().textContent   = label.toUpperCase();
+  if (elQuality()) { elQuality().textContent = ''; elQuality().className = 'roll-result__quality'; }
+  if (elTotal())   { elTotal().textContent = '?';  elTotal().style.color = ''; }
+
+  const FRAMES = 10, MS = 55;
+  let f = 0;
+  const ticker = setInterval(() => {
+    if (elD1()) elD1().textContent = rand(1, 10);
+    if (elD2()) elD2().textContent = rand(1, 10);
+    f++;
+    if (f >= FRAMES) {
+      clearInterval(ticker);
+      const d1    = rand(1, 10);
+      const d2    = rand(1, 10);
+      const total = d1 + d2 + mod + panelBonus;
+      const sgn   = n => (n >= 0 ? `+${n}` : `${n}`);
+
+      let diceHtml = `
+        <span class="roll-die">${d1}</span>
+        <span class="roll-sep">+</span>
+        <span class="roll-die">${d2}</span>
+        <span class="roll-sep">+</span>
+        <span class="roll-mod">${attrName} ${sgn(attrValue)}</span>`;
+      if (extraBonus !== 0) diceHtml += `<span class="roll-sep">+</span><span class="roll-mod">${sgn(extraBonus)}</span>`;
+      if (panelBonus !== 0) diceHtml += `<span class="roll-sep">+</span><span class="roll-mod">${sgn(panelBonus)}</span>`;
+
+      showResult(label, d1, d2, '', total, diceHtml);
+
+      const entry = { skill: label, attack: true, d1, d2, mod, bonus: panelBonus, total, ts: Date.now() };
+      pushRollHistory(entry);
+      populateRollHistory(getActiveAgent());
+      sendRoll(label, d1, d2, mod, panelBonus, total, false);
+
+      _rolling = false;
+    }
+  }, MS);
+}
+
 /**
  * Rola a Iniciativa: 2d10 + (INS − Peso da Arma escolhida).
  * O modificador já vem pronto de calcInitiativeMod (state.js).
