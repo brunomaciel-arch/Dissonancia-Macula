@@ -302,9 +302,17 @@ export function loadAllAgents() {
 const _changeListeners = [];
 export function addChangeListener(fn) { _changeListeners.push(fn); }
 
-function saveAllAgents(agents, { silent = false } = {}) {
+/** Ouvinte chamado quando o navegador recusa a gravação (ex.: armazenamento cheio). */
+let _saveErrorListener = null;
+export function setSaveErrorListener(fn) { _saveErrorListener = fn; }
+
+function saveAllAgents(agents, { silent = false, notify = true } = {}) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(agents)); }
-  catch (e) { console.error('[State] save:', e); return false; }
+  catch (e) {
+    console.error('[State] save:', e);
+    if (notify && _saveErrorListener) { try { _saveErrorListener(e); } catch { /* ignora */ } }
+    return false;
+  }
   if (!silent) {
     for (const fn of _changeListeners) {
       try { fn(); } catch (e) { console.warn('[State] change listener:', e); }
@@ -336,12 +344,12 @@ export function getAgent(id) {
 let _saveListener = null;
 export function setSaveListener(fn) { _saveListener = fn; }
 
-export function saveAgent(updated) {
+export function saveAgent(updated, { notify = true } = {}) {
   const agents = loadAllAgents();
   const i = agents.findIndex(a => a.id === updated.id);
   if (i === -1) return false;
   agents[i] = { ...updated, updatedAt: Date.now() };
-  const ok = saveAllAgents(agents);
+  const ok = saveAllAgents(agents, { notify });
   if (ok && _saveListener) {
     try { _saveListener(agents[i]); } catch (e) { console.warn('[State] save listener:', e); }
   }
@@ -362,9 +370,26 @@ export function openAgent(id)      { _active = getAgent(id); return _active; }
 export function getActiveAgent()   { return _active; }
 
 export function setField(field, value) {
-  if (!_active) return;
+  if (!_active) return false;
   _active[field] = value;
-  saveAgent(_active);
+  return saveAgent(_active);
+}
+
+/**
+ * Troca a foto do personagem ativo (e zera posição/zoom) numa única gravação.
+ * Se o navegador recusar (armazenamento cheio), desfaz tudo e devolve false —
+ * assim a tela nunca mostra uma foto que não foi realmente salva.
+ */
+export function setPhoto(dataUrl) {
+  if (!_active) return false;
+  const antes = {
+    photo: _active.photo, photoOffsetX: _active.photoOffsetX,
+    photoOffsetY: _active.photoOffsetY, photoScale: _active.photoScale,
+  };
+  Object.assign(_active, { photo: dataUrl, photoOffsetX: 50, photoOffsetY: 50, photoScale: 1 });
+  const ok = saveAgent(_active, { notify: false });
+  if (!ok) Object.assign(_active, antes);
+  return ok;
 }
 
 export function setAttr(attr, value) {
