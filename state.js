@@ -2,6 +2,8 @@
    DISSONÂNCIA & MÁCULA — state.js  (v2)
    ══════════════════════════════════════════════════════ */
 
+import { pdGastos, pdDisponiveis, calcProgressao, contarCompras, plLegado } from './regras-dev.js';
+
 const STORAGE_KEY = 'limiar_agents';
 
 function createDefaultAgent(name = 'Novo Personagem', title = '') {
@@ -51,9 +53,12 @@ function createDefaultAgent(name = 'Novo Personagem', title = '') {
     appliedGrantIds: [],
 
     // Aba 1 — Desenvolvimento
-    devAprendizado:     0,   // 0–5
-    devDesenvolvimento: 0,   // 0–30
-    devPotencial:       0,   // 0–10
+    devAprendizado:     0,   // PA: 0–4 (a cada 5 PA viram 1 PD)
+    devDesenvolvimento: 0,   // PD acumulados (gastos + disponíveis)
+    devPotencial:       0,   // aumentos de Potencial Latente: 0–10
+    devLog:             [],  // compras de PD: [{ id, tipo, custo, n?, vida?, attrs?, ts }]
+    distribInicial:     false, // distribuição inicial 4/3/2/2/1 já aplicada (pág. 17)
+    progUsos:           {},  // usos já gastos dos Bônus de Progressão: { b3: 1, … }
 
     // Aba 2 — Histórico de rolagens (persistido)
     rollHistory: [],         // [{ skill, d1, d2, mod, total, ts }]
@@ -152,6 +157,11 @@ function mergeWithDefaults(agent) {
   if (merged.devAprendizado     === undefined) merged.devAprendizado     = 0;
   if (merged.devDesenvolvimento === undefined) merged.devDesenvolvimento = 0;
   if (merged.devPotencial       === undefined) merged.devPotencial       = 0;
+  merged.devLog   = Array.isArray(agent.devLog) ? agent.devLog.filter(e => e && typeof e === 'object') : [];
+  merged.progUsos = (agent.progUsos && typeof agent.progUsos === 'object' && !Array.isArray(agent.progUsos)) ? agent.progUsos : {};
+  merged.distribInicial = agent.distribInicial === true;
+  // Fichas antigas: o PD acumulado nunca pode ser menor que o que já foi gasto em Potencial Latente
+  merged.devDesenvolvimento = Math.max(merged.devDesenvolvimento || 0, pdGastos(merged));
   if (merged.rdTier             === undefined) merged.rdTier             = 'comum';
   // migração: campo único 'forma' (ou legado 'focus') vira formaPrimaria
   if (!merged.formaPrimaria && (agent.forma || agent.focus)) {
@@ -416,15 +426,6 @@ export function setPhotoOffset(x, y, scale) {
   saveAgent(_active);
 }
 
-/* ── DESENVOLVIMENTO ── */
-const DEV_LIMITS = { devAprendizado: 5, devDesenvolvimento: 30, devPotencial: 10 };
-export function stepDev(field, dir) {
-  if (!_active) return;
-  const max = DEV_LIMITS[field] ?? 99;
-  _active[field] = Math.max(0, Math.min(max, (_active[field] ?? 0) + (dir === 'inc' ? 1 : -1)));
-  saveAgent(_active);
-}
-
 /* ── ROLL HISTORY ── */
 export function pushRollHistory(entry) {
   if (!_active) return;
@@ -667,10 +668,23 @@ export function exportAgentTxt(id) {
     line('─'),
     '  DESENVOLVIMENTO',
     line('─'),
-    pad('Aprendizado',     `${agent.devAprendizado  ?? 0} / 5`),
-    pad('Desenvolvimento', `${agent.devDesenvolvimento ?? 0} / 30`),
-    pad('Potencial Latente', `${agent.devPotencial ?? 0} / 10`),
+    pad('Aprendizado (PA)',    `${agent.devAprendizado ?? 0} / 5`),
+    pad('PD acumulados',       agent.devDesenvolvimento ?? 0),
+    pad('PD gastos',           pdGastos(agent)),
+    pad('PD disponíveis',      pdDisponiveis(agent)),
+    pad('Potencial Latente',   `${agent.devPotencial ?? 0} / 10`),
+    pad('Traços / Refinamentos / Formas', (() => { const c = contarCompras(agent.devLog); return `${1 + c.traco} / ${c.refTraco} / ${c.refForma}`; })()),
   );
+  {
+    const pr = calcProgressao(agent);
+    L(
+      '',
+      pad('Bônus de Progressão', `${pr.desbloqueados.filter(b => b.pd > 0).length} desbloqueado(s)`),
+      pad('  Dados de dano base', `+${pr.dadosDanoExtra}`),
+      pad('  Fontes de Ação',     `${pr.faNormais} por turno (+1 com Fluidez)`),
+      pad('  Ações Maiores',      `${pr.acoesMaiores} por turno`),
+    );
+  }
 
   // Arsenal
   L('', line('─'), '  ARSENAL', line('─'));
